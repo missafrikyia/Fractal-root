@@ -17,13 +17,18 @@ class NoeudCognitif:
         self.enfants.append(enfant)
 
     def repondre(self, question):
-        question = question.lower()
-        if "qui est ton parent" in question:
-            if self.parent:
-                return f"Je suis {self.nom}, mon parent est {self.parent.nom}."
-            else:
-                return f"Je suis {self.nom}, je n'ai pas de parent."
-        return f"Je suis {self.nom} et je ne comprends pas ta question."
+    question = question.lower()
+
+    if question == "/start":
+        return f"Bienvenue ! Je suis {self.nom}, ton assistant cognitif 🌱"
+
+    if "qui est ton parent" in question:
+        if self.parent:
+            return f"Je suis {self.nom} et mon parent est {self.parent.nom}."
+        else:
+            return f"Je suis {self.nom} et je n’ai pas de parent."
+
+    return f"Je suis {self.nom} et je ne comprends pas ta question."
 
 # Création de l’arbre de base
 parent1 = NoeudCognitif("Fractal Root")
