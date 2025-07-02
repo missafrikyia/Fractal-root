@@ -119,7 +119,8 @@ def webhook():
 
             if text == "/simulate":
                 simulate_dialogue()
-                return send(chat_id, "Simulation de dialogue entre IA lancée (résultats internes) ✅")
+                send(chat_id, "Simulation de dialogue entre IA lancée ✅")
+                return "ok"
 
             if text == "/show":
                 infos = f"""
@@ -128,10 +129,12 @@ def webhook():
   ├── {enfant1.nom}
   └── {enfant2.nom}
 """
-                return send(chat_id, infos.strip())
+                send(chat_id, infos.strip())
+                return "ok"
 
             response = parent1.repondre(text)
-            return send(chat_id, response)
+            send(chat_id, response)
+            return "ok"
 
     except Exception as e:
         print("[ERREUR WEBHOOK]", str(e))
