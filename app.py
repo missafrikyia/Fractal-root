@@ -1,15 +1,20 @@
 import os
 from flask import Flask, request
 import requests
+import openai
 
 app = Flask(__name__)
 
-# 🔐 Lire le token Telegram depuis les variables d’environnement
+# === CONFIGURATION ===
 TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 WEBHOOK_URL = "https://fractal-root.onrender.com/webhook"
 TELEGRAM_API_URL = f"https://api.telegram.org/bot{TOKEN}/sendMessage"
+openai.api_key = OPENAI_API_KEY
 
-# === Webhook Setup ===
+AFFICHER_DIALOGUE_IA = True
+
+# === WEBHOOK SETUP ===
 @app.route('/set_webhook')
 def set_webhook():
     if not TOKEN:
@@ -18,7 +23,7 @@ def set_webhook():
     r = requests.get(url)
     return r.json()
 
-# === Classe Noeud Cognitif ===
+# === NOEUD COGNITIF ===
 class NoeudCognitif:
     def __init__(self, nom, parent=None, reponses=None):
         self.nom = nom
@@ -47,41 +52,79 @@ class NoeudCognitif:
 
         return f"Je suis {self.nom} et je ne comprends pas ta question."
 
-# === Création de l’arbre cognitif ===
+    def dialoguer_avec(self, autre_noeud, question, chat_id=None):
+        log = f"{self.nom} demande à {autre_noeud.nom} : \"{question}\""
+        reponse = autre_noeud.repondre(question)
+        log_reponse = f"{autre_noeud.nom} répond : \"{reponse}\""
+
+        if AFFICHER_DIALOGUE_IA and chat_id:
+            requests.post(TELEGRAM_API_URL, json={"chat_id": chat_id, "text": log})
+            requests.post(TELEGRAM_API_URL, json={"chat_id": chat_id, "text": log_reponse})
+
+        return reponse
+
+    def gpt_repond(self, prompt):
+        try:
+            completion = openai.ChatCompletion.create(
+                model="gpt-3.5-turbo",
+                messages=[{"role": "user", "content": prompt}]
+            )
+            return completion.choices[0].message.content.strip()
+        except Exception as e:
+            return f"Erreur OpenAI: {str(e)}"
+
+# === CREATION ARBRE ===
 parent1 = NoeudCognitif("Fractal Root", reponses={
     "qui es-tu": "Je suis la racine principale de l’intelligence fractale.",
-    "fractal": "Une fractale est une structure qui se répète à l’infini.",
+    "fractal": "Une fractale est une structure qui se répète à l’infini."
 })
 
 enfant1_1 = NoeudCognitif("Enfant 1.1", reponses={
-    "rôle": "Je suis l’assistante éducative pour les mamans.",
+    "rôle": "Je suis l’assistante éducative pour les mamans."
 })
 
 enfant1_2 = NoeudCognitif("Enfant 1.2", reponses={
-    "stress": "Commence par respirer profondément. Tu n’es pas seule.",
+    "stress": "Commence par respirer profondément. Tu n’es pas seule."
 })
 
 parent1.ajouter_enfant(enfant1_1)
 parent1.ajouter_enfant(enfant1_2)
 
-# === Routes Flask ===
+# === FLASK ROUTES ===
 @app.route("/", methods=["GET"])
 def home():
-    return "Fractal Root - IA cognitive statique"
+    return "Fractal Root - IA cognitive enrichie"
 
 @app.route("/webhook", methods=["POST"])
 def webhook():
+    global AFFICHER_DIALOGUE_IA
     data = request.json
     if "message" in data:
         chat_id = data["message"]["chat"]["id"]
         question = data["message"].get("text", "")
 
-        reponse = parent1.repondre(question)
+        if question.lower() == "/talk":
+            enfant1_1.dialoguer_avec(enfant1_2, "Comment aider une maman stressée ?", chat_id=chat_id)
+            enfant1_2.dialoguer_avec(enfant1_1, "Quel est ton rôle dans l’arbre cognitif ?", chat_id=chat_id)
+            return "ok"
 
-        payload = {
-            "chat_id": chat_id,
-            "text": reponse,
-        }
+        if question.lower() == "/mute":
+            AFFICHER_DIALOGUE_IA = False
+            requests.post(TELEGRAM_API_URL, json={"chat_id": chat_id, "text": "🔇 Dialogue IA masqué."})
+            return "ok"
+
+        if question.lower() == "/show":
+            AFFICHER_DIALOGUE_IA = True
+            requests.post(TELEGRAM_API_URL, json={"chat_id": chat_id, "text": "🔊 Dialogue IA visible."})
+            return "ok"
+
+        if question.lower().startswith("gpt:"):
+            prompt = question[4:].strip()
+            reponse = parent1.gpt_repond(prompt)
+        else:
+            reponse = parent1.repondre(question)
+
+        payload = {"chat_id": chat_id, "text": reponse}
         requests.post(TELEGRAM_API_URL, json=payload)
 
     return "ok"
