@@ -1,4 +1,6 @@
 flask
 requests
-gunicorn
+httpx
 openai
+gunicorn
+python-dotenv
