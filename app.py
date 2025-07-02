@@ -1,16 +1,24 @@
 import os
-import requests
 from flask import Flask, request
+import requests
 
 app = Flask(__name__)
 
-# === CONFIGURATION ===
-TELEGRAM_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN")  # Nom unifié
+# 🔐 Lire le token Telegram depuis les variables d’environnement
+TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 WEBHOOK_URL = "https://fractal-root.onrender.com/webhook"
-TELEGRAM_API_URL = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
+TELEGRAM_API_URL = f"https://api.telegram.org/bot{TOKEN}/sendMessage"
 
+# === Webhook Setup ===
+@app.route('/set_webhook')
+def set_webhook():
+    if not TOKEN:
+        return {"error": "Token non défini"}, 500
+    url = f"https://api.telegram.org/bot{TOKEN}/setWebhook?url={WEBHOOK_URL}"
+    r = requests.get(url)
+    return r.json()
 
-# === CLASSE DE BASE FRACTALE ===
+# === Classe Noeud Cognitif ===
 class NoeudCognitif:
     def __init__(self, nom, parent=None, reponses=None):
         self.nom = nom
@@ -39,8 +47,7 @@ class NoeudCognitif:
 
         return f"Je suis {self.nom} et je ne comprends pas ta question."
 
-
-# === STRUCTURE FRACTALE ===
+# === Création de l’arbre cognitif ===
 parent1 = NoeudCognitif("Fractal Root", reponses={
     "qui es-tu": "Je suis la racine principale de l’intelligence fractale.",
     "fractal": "Une fractale est une structure qui se répète à l’infini.",
@@ -57,20 +64,19 @@ enfant1_2 = NoeudCognitif("Enfant 1.2", reponses={
 parent1.ajouter_enfant(enfant1_1)
 parent1.ajouter_enfant(enfant1_2)
 
-
-# === FLASK ROUTES ===
-@app.route('/')
+# === Routes Flask ===
+@app.route("/", methods=["GET"])
 def home():
-    return "Fractal Root - Serveur actif."
+    return "Fractal Root - IA cognitive statique"
 
-@app.route('/webhook', methods=["POST"])
+@app.route("/webhook", methods=["POST"])
 def webhook():
     data = request.json
     if "message" in data:
         chat_id = data["message"]["chat"]["id"]
-        texte = data["message"].get("text", "")
+        question = data["message"].get("text", "")
 
-        reponse = parent1.repondre(texte)
+        reponse = parent1.repondre(question)
 
         payload = {
             "chat_id": chat_id,
@@ -78,12 +84,4 @@ def webhook():
         }
         requests.post(TELEGRAM_API_URL, json=payload)
 
-    return "ok", 200
-
-@app.route('/set_webhook')
-def set_webhook():
-    if not TELEGRAM_TOKEN:
-        return {"error": "Token non défini"}, 500
-    url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/setWebhook?url={WEBHOOK_URL}"
-    r = requests.get(url)
-    return r.json()
+    return "ok"
