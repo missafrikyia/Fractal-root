@@ -1,10 +1,16 @@
 import os
-from flask import Flask, request
 import requests
+from flask import Flask, request
 
 app = Flask(__name__)
 
-# === Classe Noeud Cognitif ===
+# === CONFIGURATION ===
+TELEGRAM_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN")  # Nom unifié
+WEBHOOK_URL = "https://fractal-root.onrender.com/webhook"
+TELEGRAM_API_URL = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
+
+
+# === CLASSE DE BASE FRACTALE ===
 class NoeudCognitif:
     def __init__(self, nom, parent=None, reponses=None):
         self.nom = nom
@@ -34,7 +40,7 @@ class NoeudCognitif:
         return f"Je suis {self.nom} et je ne comprends pas ta question."
 
 
-# === Création de l’arbre cognitif ===
+# === STRUCTURE FRACTALE ===
 parent1 = NoeudCognitif("Fractal Root", reponses={
     "qui es-tu": "Je suis la racine principale de l’intelligence fractale.",
     "fractal": "Une fractale est une structure qui se répète à l’infini.",
@@ -52,22 +58,19 @@ parent1.ajouter_enfant(enfant1_1)
 parent1.ajouter_enfant(enfant1_2)
 
 
-# === Webhook Telegram ===
-TELEGRAM_TOKEN = os.environ.get("TELEGRAM_TOKEN")
-TELEGRAM_API_URL = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
-
-@app.route("/", methods=["GET"])
+# === FLASK ROUTES ===
+@app.route('/')
 def home():
-    return "Fractal Root - IA cognitive statique"
+    return "Fractal Root - Serveur actif."
 
-@app.route("/", methods=["POST"])
+@app.route('/webhook', methods=["POST"])
 def webhook():
     data = request.json
     if "message" in data:
         chat_id = data["message"]["chat"]["id"]
-        question = data["message"].get("text", "")
+        texte = data["message"].get("text", "")
 
-        reponse = parent1.repondre(question)
+        reponse = parent1.repondre(texte)
 
         payload = {
             "chat_id": chat_id,
@@ -75,4 +78,12 @@ def webhook():
         }
         requests.post(TELEGRAM_API_URL, json=payload)
 
-    return "ok"
+    return "ok", 200
+
+@app.route('/set_webhook')
+def set_webhook():
+    if not TELEGRAM_TOKEN:
+        return {"error": "Token non défini"}, 500
+    url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/setWebhook?url={WEBHOOK_URL}"
+    r = requests.get(url)
+    return r.json()
