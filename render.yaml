@@ -1,0 +1,11 @@
+services:
+  - type: web
+    name: cognitio-root
+    env: python
+    buildCommand: ./build.sh
+    startCommand: python app.py
+    envVars:
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false
+      - key: OPENAI_API_KEY
+        sync: false
