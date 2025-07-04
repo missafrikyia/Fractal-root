@@ -1,6 +1,6 @@
 flask
-requests
-httpx
 openai
-gunicorn
+requests
+gtts
 python-dotenv
+gunicorn
