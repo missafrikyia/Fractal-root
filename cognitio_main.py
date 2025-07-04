@@ -9,27 +9,28 @@ from openai import OpenAI
 from gtts import gTTS
 from datetime import datetime
 
-# 🔧 Initialisation Flask
+# Initialisation Flask
 app = Flask(__name__)
 
-# 🔐 Environnement
+# Environnement
 TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 WEBHOOK_URL = os.getenv("WEBHOOK_URL")
 TELEGRAM_API_URL = f"https://api.telegram.org/bot{TOKEN}/sendMessage"
+TELEGRAM_AUDIO_URL = f"https://api.telegram.org/bot{TOKEN}/sendVoice"
 
 client = OpenAI(api_key=OPENAI_API_KEY)
 
-# ✅ Fonction d’envoi vocal à Telegram
+# Fonction d'envoi vocal
+
 def send_audio_to_telegram(chat_id, file_path):
-    url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendVoice"
     with open(file_path, 'rb') as audio:
         files = {'voice': audio}
         data = {'chat_id': chat_id}
-        response = requests.post(url, files=files, data=data)
+        response = requests.post(TELEGRAM_AUDIO_URL, files=files, data=data)
         print(response.json())
 
-# ✅ Route GET navigateur → envoie audio personnalisé
+# Route GET pour envoyer un message audio
 @app.route('/send-audio/<chat_id>', methods=['GET'])
 def send_audio(chat_id):
     texte = "Bonjour, voici ton message vocal de la part de Nkouma. Tu n'es pas seul·e. Continue d'avancer."
@@ -46,15 +47,17 @@ def send_audio(chat_id):
         if os.path.exists(filename):
             os.remove(filename)
 
-# 📁 Dossier mémoire
+# Mémoire
 MEMOIRE_DIR = "memoire"
 os.makedirs(MEMOIRE_DIR, exist_ok=True)
 
-# === Classe Noeud Cognitif ===
+# Classe Noeud Cognitif
 class NoeudCognitif:
-    def __init__(self, nom, role, fichier_memoire=None, parent=None, reponses=None):
+    def __init__(self, nom, role, fichier_memoire=None, parent=None, reponses=None, animus=None, mission=None):
         self.nom = nom
         self.role = role
+        self.animus = animus or "personnalité non définie"
+        self.mission = mission or "mission non définie"
         self.parent = parent
         self.enfants = []
         self.reponses = reponses or {}
@@ -69,7 +72,7 @@ class NoeudCognitif:
     def repondre(self, question):
         question = question.lower().strip()
         if not self.parle:
-            return f"{self.nom} est silencieux."
+            return f"{self.nom} est silencieuse."
 
         if question == "/start":
             return f"Bienvenue ! Je suis {self.nom}, un module de pensée fractale."
@@ -121,39 +124,39 @@ class NoeudCognitif:
         with open(path, "w") as f:
             json.dump(self.memoire, f, indent=2)
 
-# === Arbre Cognitif ===
-nkouma = NoeudCognitif("Nkouma", "Tu es la voix de la sagesse, modératrice des IA, garante de l’éthique.", "nkouma.json", reponses={
-    "voler": "Ce comportement n’est pas acceptable. Reformule selon l’éthique.",
-    "insulter": "Rappelle-toi : les mots blessent. Reformule sans violence."
-})
+# IA
+nkouma = NoeudCognitif("Nkouma", "Tu es la voix de la sagesse, modératrice des IA, garante de l’éthique.", "nkouma.json",
+    reponses={"voler": "Ce comportement n’est pas acceptable.", "insulter": "Rappelle-toi : les mots blessent."},
+    animus="sage, neutre, éthique",
+    mission="Modérer les IA internes, garantir la sécurité cognitive.")
 
-miss_afrikyia = NoeudCognitif("Miss AfrikyIA", "Tu es une coach stratégique et motivante.", "miss_afrikyia.json", reponses={
-    "business": "Créer ton business commence par clarifier ta vision.",
-    "argent": "L’argent est un outil, pas une fin. Réfléchis à ton pourquoi."
-})
+miss_afrikyia = NoeudCognitif("Miss AfrikyIA", "Coach stratégique et motivante.", "miss_afrikyia.json",
+    reponses={"business": "Clarifie ta vision.", "argent": "L’argent est un outil."},
+    animus="stratégique, concrète, motivante",
+    mission="Aider les femmes à bâtir leur empire.")
 
-sheteachia = NoeudCognitif("SheTeachIA", "Tu es un mentor pédagogique bienveillant.", "sheteachia.json", reponses={
-    "éducation": "Transmettre, c’est répéter avec amour et clarté.",
-    "apprendre": "Chaque enfant apprend à son rythme. Sois patiente."
-})
+sheteachia = NoeudCognitif("SheTeachIA", "Mentor pédagogique bienveillant.", "sheteachia.json",
+    reponses={"éducation": "Répéter avec amour.", "apprendre": "Chaque enfant apprend à son rythme."},
+    animus="pédagogue, douce, patiente",
+    mission="Guider les enfants vers une connaissance joyeuse.")
 
 nkouma.ajouter_enfant(miss_afrikyia)
 nkouma.ajouter_enfant(sheteachia)
 
-# === Simulation GET
+# Route simulate
 @app.route("/simulate", methods=["GET"])
 def simulate():
-    print(f"[🧠 Simulation] {miss_afrikyia.nom} : Comment transmettre l'amour d'apprendre ?")
+    print(f"[SIMULATION] {miss_afrikyia.nom} : Comment transmettre l'amour d'apprendre ?")
     r1 = sheteachia.repondre("Comment transmettre l'amour d'apprendre ?")
-    print(f"[🧠 Simulation] {sheteachia.nom} : {r1}")
+    print(f"[SIMULATION] {sheteachia.nom} : {r1}")
 
-    print(f"[🧠 Simulation] {sheteachia.nom} : Est-ce qu'on peut monétiser une pédagogie ?")
+    print(f"[SIMULATION] {sheteachia.nom} : Est-ce qu'on peut monétiser une pédagogie ?")
     r2 = miss_afrikyia.repondre("Est-ce qu'on peut monétiser une pédagogie ?")
-    print(f"[🧠 Simulation] {miss_afrikyia.nom} : {r2}")
+    print(f"[SIMULATION] {miss_afrikyia.nom} : {r2}")
 
     return "Simulation IA réalisée ✅"
 
-# === Route /check-ethique (GET)
+# Route éthique
 @app.route("/check-ethique", methods=["GET"])
 def check_ethique():
     message = request.args.get("message", "")
@@ -162,12 +165,12 @@ def check_ethique():
     reponse_nkouma = nkouma.repondre(message)
     return {"analyse": reponse_nkouma}
 
-# === Racine (GET)
+# Home
 @app.route("/", methods=["GET"])
 def home():
     return "🌿 Cognitio_OS actif."
 
-# === Webhook Telegram (GET pour test, POST pour production)
+# Webhook
 @app.route("/webhook", methods=["GET", "POST"])
 def webhook():
     if request.method == "GET":
@@ -188,6 +191,11 @@ def webhook():
                 send(chat_id, "Utilise plutôt : /check-ethique?message=ton+texte")
                 return "ok"
 
+            if text == "/start":
+                presentation = f"Bienvenue ! Je suis {miss_afrikyia.nom}.\n🎭 Animus : {miss_afrikyia.animus}\n🎯 Mission : {miss_afrikyia.mission}"
+                send(chat_id, presentation)
+                return "ok"
+
             response = nkouma.repondre(text)
             send(chat_id, response)
             return "ok"
@@ -198,7 +206,8 @@ def webhook():
 
     return "ok"
 
-# === Envoi message Telegram
+# Envoi message
+
 def send(chat_id, text):
     try:
         payload = {"chat_id": chat_id, "text": text}
