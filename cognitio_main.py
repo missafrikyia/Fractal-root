@@ -134,7 +134,7 @@ def contient_contenu_interdit(message):
 def home():
     return "Cognitio_OS en fonctionnement."
 
-@app.route("/webhook", methods=["POST"])
+@app.route("/webhook", methods=["POST"],["GET"])
 def webhook():
     data = request.json
     if "message" in data:
@@ -162,7 +162,7 @@ def webhook():
 
     return "ok"
 
-@app.route("/check-ethique", methods=["POST"])
+@app.route("/check-ethique", methods=["POST"], ["GET"])
 def check_ethique():
     try:
         data = request.get_json()
