@@ -20,6 +20,32 @@ TELEGRAM_API_URL = f"https://api.telegram.org/bot{TOKEN}/sendMessage"
 
 client = OpenAI(api_key=OPENAI_API_KEY)
 
+# ✅ Fonction d’envoi vocal à Telegram
+def send_audio_to_telegram(chat_id, file_path):
+    url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendVoice"
+    with open(file_path, 'rb') as audio:
+        files = {'voice': audio}
+        data = {'chat_id': chat_id}
+        response = requests.post(url, files=files, data=data)
+        print(response.json())
+
+# ✅ Route GET navigateur → envoie audio personnalisé
+@app.route('/send-audio/<chat_id>', methods=['GET'])
+def send_audio(chat_id):
+    texte = "Bonjour, voici ton message vocal de la part de Nkouma. Tu n'es pas seul·e. Continue d'avancer."
+    filename = f"audio_{chat_id}.mp3"
+    tts = gTTS(texte, lang="fr")
+    tts.save(filename)
+
+    try:
+        send_audio_to_telegram(chat_id, filename)
+        return f"✅ Audio envoyé à {chat_id}", 200
+    except Exception as e:
+        return f"❌ Erreur : {str(e)}", 500
+    finally:
+        if os.path.exists(filename):
+            os.remove(filename)
+
 # 📁 Dossier mémoire
 MEMOIRE_DIR = "memoire"
 os.makedirs(MEMOIRE_DIR, exist_ok=True)
