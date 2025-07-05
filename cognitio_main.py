@@ -4,14 +4,14 @@ load_dotenv()
 import os
 import json
 import requests
-from flask import Flask, request, jsonify
+from flask import Flask, request
 from openai import OpenAI
 from gtts import gTTS
 from datetime import datetime
 
 app = Flask(__name__)
 
-# 🔐 Clés d'API et constantes
+# 🔐 Clés
 TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 TELEGRAM_API_URL = f"https://api.telegram.org/bot{TOKEN}"
@@ -97,14 +97,14 @@ class NoeudCognitif:
         with open(path, "w") as f:
             json.dump(self.memoire, f, indent=2)
 
-# 🌱 Noeuds IA
+# 🌱 IA
 nkouma = NoeudCognitif("Nkouma", "Modératrice éthique", "nkouma.json", reponses={"insulter": "Merci de reformuler avec bienveillance."})
 miss = NoeudCognitif("Miss AfrikyIA", "Coach business", "miss_afrikyia.json", reponses={"plan": "Un bon plan commence par une bonne vision."})
 sheteachia = NoeudCognitif("SheTeachIA", "Mentor éducatif", "sheteachia.json", reponses={"devoirs": "Je peux t’aider pour les devoirs."})
 nkouma.ajouter_enfant(miss)
 nkouma.ajouter_enfant(sheteachia)
 
-# 🎧 Audio
+# 🔊 Audio
 def send_audio_to_telegram(chat_id, file_path):
     url = f"{TELEGRAM_API_URL}/sendVoice"
     with open(file_path, 'rb') as audio:
@@ -122,15 +122,17 @@ def send_audio(chat_id):
     os.remove(filename)
     return f"✅ Audio envoyé à {chat_id}"
 
-# ✅ Menus & Forfaits
+# 💬 Envoi message
 def send_message(chat_id, text, reply_markup=None):
     payload = {
         "chat_id": chat_id,
         "text": text,
+        "parse_mode": "Markdown",
         "reply_markup": json.dumps(reply_markup) if reply_markup else None
     }
     requests.post(f"{TELEGRAM_API_URL}/sendMessage", json=payload)
 
+# 📍 Menu principal
 def show_main_menu(chat_id):
     buttons = [
         [{"text": "📈 Business", "callback_data": "p_business"}],
@@ -138,6 +140,7 @@ def show_main_menu(chat_id):
     ]
     send_message(chat_id, "👋 Bonjour ! Qu’est-ce qu’on augmente aujourd’hui ?", {"inline_keyboard": buttons})
 
+# 📂 Sous-pôles
 def show_submenu(chat_id, domaine):
     if domaine == "business":
         poles = [("Plan", "s_plan"), ("Visuel", "s_visuel"), ("Branding", "s_branding")]
@@ -146,6 +149,7 @@ def show_submenu(chat_id, domaine):
     buttons = [[{"text": nom, "callback_data": code}] for nom, code in poles]
     send_message(chat_id, f"🧭 Choisis un sous-pôle ({domaine.title()}) :", {"inline_keyboard": buttons})
 
+# 💸 Forfaits
 def show_forfaits(chat_id, pole):
     buttons = []
     for key, infos in FORFAITS.items():
@@ -153,22 +157,25 @@ def show_forfaits(chat_id, pole):
         buttons.append([{"text": btn_text, "callback_data": f"pay_{key}"}])
     send_message(chat_id, f"💸 Choisis ton forfait pour le pôle **{pole}** :", {"inline_keyboard": buttons})
 
+# 📲 Paiement
 def handle_payment(chat_id, forfait):
     infos = FORFAITS.get(forfait)
     if not infos:
-        send_message(chat_id, "Forfait non reconnu.")
+        send_message(chat_id, "❌ Forfait non reconnu.")
         return
+
     msg = (
-        f"✅ Forfait *{infos['nom']}* sélectionné :\n"
-        f"- Prix : {infos['prix']} FCFA\n"
-        f"- Accès : {infos['duree']}\n\n"
+        f"🎟️ *{infos['nom']}*\n"
+        f"💰 *Prix* : {infos['prix']} FCFA\n"
+        f"⏳ *Validité* : {infos['duree']}\n"
+        f"📦 *Contenu* : {infos['contenu']}\n\n"
         f"📲 *Paiement par Airtel Money* :\n"
         f"`+242 057538060`\n\n"
-        f"📤 Envoie ensuite une preuve de paiement ici."
+        f"📤 Merci d’envoyer ta preuve de paiement ici pour activer ton forfait."
     )
     send_message(chat_id, msg)
 
-# ✅ Webhook complet
+# ✅ Webhook
 @app.route("/webhook", methods=["POST", "GET"])
 def webhook():
     if request.method == "GET":
@@ -203,7 +210,7 @@ def webhook():
 
     return "ok"
 
-# ✅ Simulation IA
+# 🧪 Simulation
 @app.route('/simulate', methods=['GET'])
 def simulate():
     r1 = sheteachia.repondre("Comment transmettre l'amour d'apprendre ?")
@@ -211,7 +218,7 @@ def simulate():
     print("[Simu] Miss → SheTeachIA\n", r1, "\n", r2)
     return "✅ Simulation IA ok"
 
-# ✅ Éthique
+# 🧹 Éthique
 @app.route('/check-ethique', methods=['GET'])
 def check_ethique():
     message = request.args.get("message", "")
