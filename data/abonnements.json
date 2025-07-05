@@ -1,20 +1,20 @@
 {
-  "essentiel": {
-    "nom": " Forfait IA Basique",
+  "ia_essentiel": {
+    "nom": "Forfait IA Essentiel",
     "prix": 1000,
-    "description": " 10 Réponses simples et rapides",
-    "duree": "1 jour"
+    "duree": "1 jour",
+    "contenu": "10 messages écrits ou vocaux"
   },
-  "premium": {
+  "ia_premium": {
     "nom": "Forfait IA Premium",
     "prix": 5000,
-    "description": " 60 Réponses détaillées, ou 3 visuels personnalisés, suivi 3 jours.",
-    "duree": "3 jours"
+    "duree": "3 jours",
+    "contenu": "60 messages écrits / vocaux"
   },
-  "vip": {
+  "ia_vip": {
     "nom": "Forfait IA VIP",
     "prix": 10000,
-    "description": "150 + IA vocale + support prioritaire.",
-    "duree": "15 jours "
+    "duree": "15 jours",
+    "contenu": "150 messages écrits / vocaux"
   }
 }
