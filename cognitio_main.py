@@ -99,7 +99,6 @@ sheteachia = NoeudCognitif("SheTeachIA", "Mentor IA éducatif", "teach.json")
 shelovia = NoeudCognitif("SheLovIA", "Coach IA relationnel/amour", "love.json")
 
 # ✉️ Utilitaires
-
 def send_message(chat_id, text, reply_markup=None):
     payload = {
         "chat_id": chat_id,
@@ -110,7 +109,6 @@ def send_message(chat_id, text, reply_markup=None):
     requests.post(f"{TELEGRAM_API_URL}/sendMessage", json=payload)
 
 # ✅ Étape 1 : choix des forfaits
-
 def show_forfaits(chat_id):
     boutons = [
         [{"text": f"{infos['nom']} – {infos['prix']}", "callback_data": f"forfait_{key}"}]
@@ -119,23 +117,23 @@ def show_forfaits(chat_id):
     send_message(chat_id, "💳 Choisis ton forfait IA :", {"inline_keyboard": boutons})
 
 # ✅ Étape 2 : Détail du forfait choisi
-
 def show_forfait_details(chat_id, key):
     infos = FORFAITS.get(key)
     if not infos:
         send_message(chat_id, "❌ Forfait inconnu.")
         return
-    texte = f"🎟️ *{infos['nom']}*"
+
+    texte = f"""🎟️ *{infos['nom']}*
 Durée : {infos['duree']}
 Contenu : {infos['contenu']}
 Prix : {infos['prix']}
 
-Paiement : "Airtel Money +242 057538060"
-    boutons = [[{"text": "✅ J’ai payé", "callback_data": f"acces_ia"}]]
+Paiement : Airtel Money +242 057538060"""
+
+    boutons = [[{"text": "✅ J’ai payé", "callback_data": "acces_ia"}]]
     send_message(chat_id, texte, {"inline_keyboard": boutons})
 
 # ✅ Étape 3 : Accès aux IA coachs
-
 def show_ia_options(chat_id):
     boutons = [
         [{"text": "👩‍💼 Miss AfrikyIA", "callback_data": "ia_miss"}],
@@ -145,12 +143,12 @@ def show_ia_options(chat_id):
     send_message(chat_id, "🤖 Choisis ton coach IA :", {"inline_keyboard": boutons})
 
 # ✅ Message de bienvenue IA
-
 def accueil_ia(chat_id, ia):
     message = ia.repondre("Bonjour")
-    send_message(chat_id, f"🤖 *{ia.nom} est maintenant activé !*
+    texte = f"""🤖 *{ia.nom} est maintenant activé !*
 
-{message}")
+{message}"""
+    send_message(chat_id, texte)
 
 # ✅ Webhook Telegram
 @app.route("/webhook", methods=["POST", "GET"])
@@ -202,4 +200,3 @@ def check():
         return jsonify({"erreur": "Message vide"}), 400
     analyse = miss.repondre(message)
     return jsonify({"analyse": analyse})
-
