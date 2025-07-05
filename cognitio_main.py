@@ -125,7 +125,7 @@ def show_forfait_details(chat_id, key):
     if not infos:
         send_message(chat_id, "❌ Forfait inconnu.")
         return
-    texte = f"🎟️ *{infos['nom']}*
+    texte = f"🎟️ *{infos['nom']}*"
 Durée : {infos['duree']}
 Contenu : {infos['contenu']}
 Prix : {infos['prix']}
