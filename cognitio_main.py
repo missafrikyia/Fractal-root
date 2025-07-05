@@ -2,7 +2,7 @@ from langdetect import detect
 from dotenv import load_dotenv
 load_dotenv()
 
-import os, json, requests
+import os, json, requests, threading, time
 from flask import Flask, request, jsonify
 from openai import OpenAI
 from gtts import gTTS
@@ -10,18 +10,18 @@ from datetime import datetime
 
 app = Flask(__name__)
 
+# 🔐 Clés API et constantes
 TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 TELEGRAM_API_URL = f"https://api.telegram.org/bot{TOKEN}"
 client = OpenAI(api_key=OPENAI_API_KEY)
 
+# 🎫 Forfaits disponibles
 FORFAITS = {
     "essentiel": {"nom": "Essentiel", "prix": "1000", "duree": 1, "contenu": "10 messages écrits ou vocaux"},
     "premium": {"nom": "Premium", "prix": "5000", "duree": 3, "contenu": "60 messages écrits / vocaux"},
     "vip": {"nom": "VIP", "prix": "10000", "duree": 15, "contenu": "150 messages écrits / vocaux"}
 }
-
-SESSIONS = {}
 
 # 🧠 Classe IA
 class NoeudCognitif:
@@ -32,15 +32,11 @@ class NoeudCognitif:
     def repondre(self, prompt):
         try:
             lang = detect(prompt)
-            if lang == "fr":
-                prefix = ""
-            elif lang == "ln":
-                prefix = "Réponds en lingala : "
-            elif lang == "en":
-                prefix = "Answer in English: "
-            else:
-                prefix = ""
-            
+            prefix = {
+                "fr": "",
+                "ln": "Réponds en lingala : ",
+                "en": "Answer in English: "
+            }.get(lang, "")
             full_prompt = f"{prefix}{prompt}"
 
             completion = client.chat.completions.create(
@@ -61,6 +57,8 @@ shelove = NoeudCognitif("SheLoveIA", "Love coach pour bâtir une vie sentimental
 nkouma = NoeudCognitif("Nkouma", "Modératrice éthique. Répond toujours avec bienveillance.")
 
 # 🧠 Sessions en mémoire
+SESSIONS = {}
+
 def activer_forfait(chat_id, forfait_id):
     infos = FORFAITS.get(forfait_id)
     if not infos:
@@ -74,19 +72,17 @@ def activer_forfait(chat_id, forfait_id):
 
 def est_valide(chat_id):
     session = SESSIONS.get(chat_id)
-    if not session:
-        return False
-    return datetime.now().timestamp() < session["expires"]
+    return session and datetime.now().timestamp() < session["expires"]
 
 def set_noeud(chat_id, choix):
     if chat_id not in SESSIONS:
         return
-    if choix == "business":
-        SESSIONS[chat_id]["noeud"] = miss
-    elif choix == "education":
-        SESSIONS[chat_id]["noeud"] = sheteachia
-    elif choix == "love":
-        SESSIONS[chat_id]["noeud"] = shelove
+    noeuds = {
+        "business": miss,
+        "education": sheteachia,
+        "love": shelove
+    }
+    SESSIONS[chat_id]["noeud"] = noeuds.get(choix)
 
 def get_noeud(chat_id):
     return SESSIONS.get(chat_id, {}).get("noeud", None)
@@ -125,7 +121,48 @@ def show_poles(chat_id):
     ]
     send_message(chat_id, "📍 Quel pôle IA souhaites-tu explorer ?", {"inline_keyboard": buttons})
 
-# 🌐 Webhook
+# 🎧 Envoi vocal du matin
+def envoyer_audio_matin(chat_id):
+    session = SESSIONS.get(chat_id)
+    if not session or not est_valide(chat_id):
+        return
+
+    noeud = session.get("noeud")
+    if not noeud:
+        return
+
+    try:
+        prompts = {
+            "Miss AfrikyIA": "Dis un message de motivation business pour bien commencer la journée.",
+            "SheTeachIA": "Dis une astuce éducative ou une citation d'apprentissage pour motiver un enfant.",
+            "SheLoveIA": "Dis une phrase inspirante pour nourrir l’amour de soi et des autres."
+        }
+        prompt = prompts.get(noeud.nom, "Dis un message inspirant pour démarrer la journée.")
+        text = noeud.repondre(prompt)
+
+        tts = gTTS(text=text, lang="fr")
+        filename = f"audio_{chat_id}.mp3"
+        tts.save(filename)
+
+        with open(filename, "rb") as audio:
+            requests.post(f"{TELEGRAM_API_URL}/sendVoice", files={"voice": audio}, data={"chat_id": chat_id})
+        os.remove(filename)
+    except Exception as e:
+        print("Erreur audio matin:", e)
+
+# ⏰ Boucle envoi automatique à 08h
+def boucle_matin():
+    while True:
+        heure = datetime.now().strftime("%H:%M")
+        if heure == "08:00":
+            for chat_id in SESSIONS:
+                envoyer_audio_matin(chat_id)
+            time.sleep(60)
+        time.sleep(30)
+
+threading.Thread(target=boucle_matin, daemon=True).start()
+
+# 🌐 Webhook principal
 @app.route("/webhook", methods=["POST", "GET"])
 def webhook():
     if request.method == "GET":
@@ -165,15 +202,21 @@ def webhook():
 
     return "ok"
 
-# 🧪 simulate
+# 🧪 Route de simulation
 @app.route("/simulate", methods=["GET"])
 def simulate():
     r1 = sheteachia.repondre("Comment transmettre l'amour d'apprendre ?")
     r2 = miss.repondre("Peut-on monétiser une pédagogie ?")
     return "✅ Simulation IA ok"
 
-# ✅ check-ethique
+# ✅ Route d'éthique
 @app.route("/check-ethique", methods=["GET"])
 def check_ethique():
     message = request.args.get("message", "")
     return {"analyse": nkouma.repondre(message)}
+
+# 📤 Route manuelle pour envoyer un audio du matin à un ID précis
+@app.route("/send-morning/<chat_id>", methods=["GET"])
+def send_morning(chat_id):
+    envoyer_audio_matin(int(chat_id))
+    return f"✅ Audio du matin envoyé à {chat_id}"
