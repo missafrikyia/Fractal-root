@@ -1,6 +1,7 @@
 from langdetect import detect
 from dotenv import load_dotenv
 load_dotenv()
+
 import os, json, requests
 from flask import Flask, request, jsonify
 from openai import OpenAI
@@ -29,35 +30,24 @@ class NoeudCognitif:
         self.role = role
 
     def repondre(self, prompt):
-    try:
-        lang = detect(prompt)
-        if lang == "fr":
-            prefix = ""
-        elif lang == "ln":
-            prefix = "Réponds en lingala : "
-        elif lang == "en":
-            prefix = "Answer in English: "
-        else:
-            prefix = ""
-        
-        full_prompt = f"{prefix}{prompt}"
-
-        completion = client.chat.completions.create(
-            model="gpt-3.5-turbo",
-            messages=[
-                {"role": "system", "content": self.role},
-                {"role": "user", "content": full_prompt}
-            ]
-        )
-        return completion.choices[0].message.content.strip()
-    except:
-        return "🤖 [GPT indisponible]"
         try:
+            lang = detect(prompt)
+            if lang == "fr":
+                prefix = ""
+            elif lang == "ln":
+                prefix = "Réponds en lingala : "
+            elif lang == "en":
+                prefix = "Answer in English: "
+            else:
+                prefix = ""
+            
+            full_prompt = f"{prefix}{prompt}"
+
             completion = client.chat.completions.create(
                 model="gpt-3.5-turbo",
                 messages=[
                     {"role": "system", "content": self.role},
-                    {"role": "user", "content": prompt}
+                    {"role": "user", "content": full_prompt}
                 ]
             )
             return completion.choices[0].message.content.strip()
