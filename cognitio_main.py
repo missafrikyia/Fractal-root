@@ -1,202 +1,186 @@
-# ✅ Cognitio Script – Parcours Forfait → IA Coach (Inline 100%)
-
+from langdetect import detect
 from dotenv import load_dotenv
 load_dotenv()
-
-import os
-import json
-import requests
+import os, json, requests
 from flask import Flask, request, jsonify
 from openai import OpenAI
 from gtts import gTTS
-from langdetect import detect
 from datetime import datetime
 
-app = Flask(__name__)
+app = Flask(name)
 
-# 🔐 Clés API et constantes
 TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 TELEGRAM_API_URL = f"https://api.telegram.org/bot{TOKEN}"
 client = OpenAI(api_key=OPENAI_API_KEY)
 
-# 📁 Dossiers
-MEMOIRE_DIR = "memoire"
-os.makedirs(MEMOIRE_DIR, exist_ok=True)
-
-# 🎟️ Forfaits manuels (inline, pas via JSON)
 FORFAITS = {
-    "essentiel": {
-        "nom": "Essentiel",
-        "prix": "1 000 FCFA",
-        "duree": "1 jour",
-        "contenu": "10 messages écrits ou vocaux"
-    },
-    "premium": {
-        "nom": "Premium",
-        "prix": "5 000 FCFA",
-        "duree": "3 jours",
-        "contenu": "60 messages écrits ou vocaux"
-    },
-    "vip": {
-        "nom": "VIP",
-        "prix": "10 000 FCFA",
-        "duree": "15 jours",
-        "contenu": "150 messages écrits ou vocaux"
-    }
+"essentiel": {"nom": "Essentiel", "prix": "1000", "duree": 1, "contenu": "10 messages écrits ou vocaux"},
+"premium": {"nom": "Premium", "prix": "5000", "duree": 3, "contenu": "60 messages écrits / vocaux"},
+"vip": {"nom": "VIP", "prix": "10000", "duree": 15, "contenu": "150 messages écrits / vocaux"}
 }
 
-# 🧠 Classe IA
+SESSIONS = {}
+
+🧠 Classe IA
+
 class NoeudCognitif:
-    def __init__(self, nom, role, fichier_memoire=None):
-        self.nom = nom
-        self.role = role
-        self.fichier_memoire = fichier_memoire
-        self.memoire = self.charger_memoire()
+def init(self, nom, role):
+self.nom = nom
+self.role = role
 
-    def repondre(self, question):
-        lang = detect(question)
-        prefix = "Réponds en lingala : " if lang == "ln" else ""
-        prompt = f"{prefix}{question}"
+def repondre(self, prompt):
+    try:
+        lang = detect(prompt)
+        if lang == "fr":
+            prefix = ""
+        elif lang == "ln":
+            prefix = "Réponds en lingala : "
+        elif lang == "en":
+            prefix = "Answer in English: "
+        else:
+            prefix = ""
+        
+        full_prompt = f"{prefix}{prompt}"
 
-        try:
-            completion = client.chat.completions.create(
-                model="gpt-3.5-turbo",
-                messages=[
-                    {"role": "system", "content": self.role},
-                    {"role": "user", "content": prompt}
-                ]
-            )
-            reponse = completion.choices[0].message.content.strip()
-            self.memoire[datetime.now().isoformat()] = {"q": question, "r": reponse}
-            self.sauvegarder_memoire()
-            return reponse
-        except:
-            return "[GPT indisponible]"
+        completion = client.chat.completions.create(
+            model="gpt-3.5-turbo",
+            messages=[
+                {"role": "system", "content": self.role},
+                {"role": "user", "content": full_prompt}
+            ]
+        )
+        return completion.choices[0].message.content.strip()
+    except:
+        return "🤖 [GPT indisponible]"
 
-    def charger_memoire(self):
-        if not self.fichier_memoire:
-            return {}
-        path = os.path.join(MEMOIRE_DIR, self.fichier_memoire)
-        if os.path.exists(path):
-            try:
-                with open(path, "r") as f:
-                    return json.load(f)
-            except:
-                return {}
-        return {}
+🧠 Noeuds IA
 
-    def sauvegarder_memoire(self):
-        if not self.fichier_memoire:
-            return
-        path = os.path.join(MEMOIRE_DIR, self.fichier_memoire)
-        with open(path, "w") as f:
-            json.dump(self.memoire, f, indent=2)
+miss = NoeudCognitif("Miss AfrikyIA", "Coach business pour femmes africaines.")
+sheteachia = NoeudCognitif("SheTeachIA", "Mentor éducatif qui aide aux devoirs et à l’apprentissage.")
+shelove = NoeudCognitif("SheLoveIA", "Love coach pour bâtir une vie sentimentale saine.")
+nkouma = NoeudCognitif("Nkouma", "Modératrice éthique. Répond toujours avec bienveillance.")
 
-# 🧠 Création des IA
-miss = NoeudCognitif("Miss AfrikyIA", "Coach IA business", "miss.json")
-sheteachia = NoeudCognitif("SheTeachIA", "Mentor IA éducatif", "teach.json")
-shelovia = NoeudCognitif("SheLovIA", "Coach IA relationnel/amour", "love.json")
+🧠 Sessions en mémoire
 
-# ✉️ Utilitaires
+def activer_forfait(chat_id, forfait_id):
+infos = FORFAITS.get(forfait_id)
+if not infos:
+return False
+SESSIONS[chat_id] = {
+"forfait": forfait_id,
+"expires": datetime.now().timestamp() + infos["duree"] * 86400,
+"noeud": None
+}
+return True
+
+def est_valide(chat_id):
+session = SESSIONS.get(chat_id)
+if not session:
+return False
+return datetime.now().timestamp() < session["expires"]
+
+def set_noeud(chat_id, choix):
+if chat_id not in SESSIONS:
+return
+if choix == "business":
+SESSIONS[chat_id]["noeud"] = miss
+elif choix == "education":
+SESSIONS[chat_id]["noeud"] = sheteachia
+elif choix == "love":
+SESSIONS[chat_id]["noeud"] = shelove
+
+def get_noeud(chat_id):
+return SESSIONS.get(chat_id, {}).get("noeud", None)
+
+💬 Telegram
+
 def send_message(chat_id, text, reply_markup=None):
-    payload = {
-        "chat_id": chat_id,
-        "text": text,
-        "parse_mode": "Markdown",
-        "reply_markup": json.dumps(reply_markup) if reply_markup else None
-    }
-    requests.post(f"{TELEGRAM_API_URL}/sendMessage", json=payload)
+payload = {"chat_id": chat_id, "text": text, "parse_mode": "Markdown"}
+if reply_markup:
+payload["reply_markup"] = json.dumps(reply_markup)
+requests.post(f"{TELEGRAM_API_URL}/sendMessage", json=payload)
 
-# ✅ Étape 1 : choix des forfaits
 def show_forfaits(chat_id):
-    boutons = [
-        [{"text": f"{infos['nom']} – {infos['prix']}", "callback_data": f"forfait_{key}"}]
-        for key, infos in FORFAITS.items()
-    ]
-    send_message(chat_id, "💳 Choisis ton forfait IA :", {"inline_keyboard": boutons})
+buttons = [
+[{"text": "🎟️ Essentiel – 1000 FCFA", "callback_data": "f_essentiel"}],
+[{"text": "🎟️ Premium – 5000 FCFA", "callback_data": "f_premium"}],
+[{"text": "🎟️ VIP – 10000 FCFA", "callback_data": "f_vip"}],
+]
+send_message(chat_id, "Choisis ton forfait IA :", {"inline_keyboard": buttons})
 
-# ✅ Étape 2 : Détail du forfait choisi
-def show_forfait_details(chat_id, key):
-    infos = FORFAITS.get(key)
-    if not infos:
-        send_message(chat_id, "❌ Forfait inconnu.")
-        return
+def show_infos(chat_id, fkey):
+infos = FORFAITS[fkey]
+msg = (
+f"{infos['nom']}\n"
+f"⏳ Durée : {infos['duree']} jour(s)\n"
+f"📦 {infos['contenu']}\n\n"
+f"📲 Paiement par Airtel : +242 057538060"
+)
+buttons = [[{"text": "✅ J’ai payé", "callback_data": f"paid_{fkey}"}]]
+send_message(chat_id, msg, {"inline_keyboard": buttons})
 
-    texte = f"""🎟️ *{infos['nom']}*
-Durée : {infos['duree']}
-Contenu : {infos['contenu']}
-Prix : {infos['prix']}
+def show_poles(chat_id):
+buttons = [
+[{"text": "📈 Business", "callback_data": "p_business"}],
+[{"text": "📚 Éducation", "callback_data": "p_education"}],
+[{"text": "💖 Love Plan", "callback_data": "p_love"}],
+]
+send_message(chat_id, "📍 Quel pôle IA souhaites-tu explorer ?", {"inline_keyboard": buttons})
 
-Paiement : Airtel Money +242 057538060"""
+🌐 Webhook
 
-    boutons = [[{"text": "✅ J’ai payé", "callback_data": "acces_ia"}]]
-    send_message(chat_id, texte, {"inline_keyboard": boutons})
-
-# ✅ Étape 3 : Accès aux IA coachs
-def show_ia_options(chat_id):
-    boutons = [
-        [{"text": "👩‍💼 Miss AfrikyIA", "callback_data": "ia_miss"}],
-        [{"text": "👩‍🏫 SheTeachIA", "callback_data": "ia_teach"}],
-        [{"text": "💕 SheLovIA", "callback_data": "ia_love"}]
-    ]
-    send_message(chat_id, "🤖 Choisis ton coach IA :", {"inline_keyboard": boutons})
-
-# ✅ Message de bienvenue IA
-def accueil_ia(chat_id, ia):
-    message = ia.repondre("Bonjour")
-    texte = f"""🤖 *{ia.nom} est maintenant activé !*
-
-{message}"""
-    send_message(chat_id, texte)
-
-# ✅ Webhook Telegram
 @app.route("/webhook", methods=["POST", "GET"])
 def webhook():
-    if request.method == "GET":
-        return "✅ Webhook ok"
+if request.method == "GET":
+return "✅ Webhook actif"
 
-    data = request.json
-    chat_id = data.get("message", {}).get("chat", {}).get("id") or data.get("callback_query", {}).get("from", {}).get("id")
+data = request.json  
+chat_id = data.get("message", {}).get("chat", {}).get("id") or data.get("callback_query", {}).get("from", {}).get("id")  
 
-    if "message" in data:
-        text = data["message"].get("text", "")
-        if text == "/start":
-            show_forfaits(chat_id)
-            return "ok"
+if "message" in data:  
+    txt = data["message"].get("text", "")  
+    if txt == "/start":  
+        show_forfaits(chat_id)  
+    elif est_valide(chat_id):  
+        node = get_noeud(chat_id)  
+        if node:  
+            answer = node.repondre(txt)  
+            send_message(chat_id, answer)  
+        else:  
+            send_message(chat_id, "❗ Merci de choisir un pôle IA.")  
+            show_poles(chat_id)  
+    else:  
+        send_message(chat_id, "⛔ Forfait expiré ou non activé. Tape /start.")  
 
-    if "callback_query" in data:
-        cb = data["callback_query"]
-        data_cb = cb["data"]
+elif "callback_query" in data:  
+    data_cb = data["callback_query"]["data"]  
+    if data_cb.startswith("f_"):  
+        show_infos(chat_id, data_cb.replace("f_", ""))  
+    elif data_cb.startswith("paid_"):  
+        key = data_cb.replace("paid_", "")  
+        if activer_forfait(chat_id, key):  
+            send_message(chat_id, f"✅ Paiement confirmé ! Tu es connectée à *{key.title()}* pour {FORFAITS[key]['duree']} jour(s).")  
+            show_poles(chat_id)  
+    elif data_cb.startswith("p_"):  
+        domaine = data_cb.replace("p_", "")  
+        set_noeud(chat_id, domaine)  
+        send_message(chat_id, f"🎯 Super choix. {domaine.title()} est activé. Pose ta première question ✨")  
 
-        if data_cb.startswith("forfait_"):
-            key = data_cb.replace("forfait_", "")
-            show_forfait_details(chat_id, key)
+return "ok"
 
-        elif data_cb == "acces_ia":
-            show_ia_options(chat_id)
+🧪 simulate
 
-        elif data_cb == "ia_miss":
-            accueil_ia(chat_id, miss)
-        elif data_cb == "ia_teach":
-            accueil_ia(chat_id, sheteachia)
-        elif data_cb == "ia_love":
-            accueil_ia(chat_id, shelovia)
-
-    return "ok"
-
-# ✅ Route simulation IA
-@app.route('/simulate', methods=['GET'])
+@app.route("/simulate", methods=["GET"])
 def simulate():
-    r1 = sheteachia.repondre("Comment motiver les enfants à apprendre ?")
-    r2 = miss.repondre("Comment monétiser une école virtuelle ?")
-    return f"SheTeachIA: {r1}\nMiss AfrikyIA: {r2}"
+r1 = sheteachia.repondre("Comment transmettre l'amour d'apprendre ?")
+r2 = miss.repondre("Peut-on monétiser une pédagogie ?")
+return "✅ Simulation IA ok"
 
-# ✅ Route analyse éthique
-@app.route('/check', methods=['GET'])
-def check():
-    message = request.args.get("message", "")
-    if not message:
-        return jsonify({"erreur": "Message vide"}), 400
-    analyse = miss.repondre(message)
-    return jsonify({"analyse": analyse})
+✅ check-ethique
+
+@app.route("/check-ethique", methods=["GET"])
+def check_ethique():
+message = request.args.get("message", "")
+return {"analyse": nkouma.repondre(message)}
+
