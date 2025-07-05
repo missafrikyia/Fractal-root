@@ -22,7 +22,7 @@ FORFAITS = {
 
 SESSIONS = {}
 
-🧠 Classe IA
+ Classe IA
 
 class NoeudCognitif:
 def init(self, nom, role):
@@ -54,14 +54,14 @@ def repondre(self, prompt):
     except:
         return "🤖 [GPT indisponible]"
 
-🧠 Noeuds IA
+  Noeuds IA
 
 miss = NoeudCognitif("Miss AfrikyIA", "Coach business pour femmes africaines.")
 sheteachia = NoeudCognitif("SheTeachIA", "Mentor éducatif qui aide aux devoirs et à l’apprentissage.")
 shelove = NoeudCognitif("SheLoveIA", "Love coach pour bâtir une vie sentimentale saine.")
 nkouma = NoeudCognitif("Nkouma", "Modératrice éthique. Répond toujours avec bienveillance.")
 
-🧠 Sessions en mémoire
+Sessions en mémoire
 
 def activer_forfait(chat_id, forfait_id):
 infos = FORFAITS.get(forfait_id)
