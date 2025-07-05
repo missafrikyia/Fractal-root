@@ -4,30 +4,36 @@ load_dotenv()
 import os
 import json
 import requests
-from flask import Flask, request, jsonify
+from flask import Flask, request
 from openai import OpenAI
 from gtts import gTTS
 from datetime import datetime
 
 app = Flask(__name__)
 
-# 🔐 Clés d'API et constantes
+# 🔐 Clés d'API
 TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 TELEGRAM_API_URL = f"https://api.telegram.org/bot{TOKEN}"
 client = OpenAI(api_key=OPENAI_API_KEY)
 
 # 📁 Dossiers
-MEMOIRE_DIR = "memoire"
-DATA_DIR = "data"
-ABONNEMENTS_PATH = os.path.join(DATA_DIR, "abonnements.json")
-UTILISATEURS_PATH = os.path.join(DATA_DIR, "utilisateurs.json")
-os.makedirs(MEMOIRE_DIR, exist_ok=True)
-os.makedirs(DATA_DIR, exist_ok=True)
+os.makedirs("memoire", exist_ok=True)
+os.makedirs("data", exist_ok=True)
+
+ABONNEMENTS_PATH = "data/abonnements.json"
+UTILISATEURS_PATH = "data/utilisateurs.json"
 
 # 📦 Chargement des forfaits
 with open(ABONNEMENTS_PATH, "r", encoding="utf-8") as f:
     FORFAITS = json.load(f)
+
+# 📦 Chargement utilisateurs
+if os.path.exists(UTILISATEURS_PATH):
+    with open(UTILISATEURS_PATH, "r", encoding="utf-8") as f:
+        UTILISATEURS = json.load(f)
+else:
+    UTILISATEURS = {}
 
 # 🧠 Classe IA
 class NoeudCognitif:
@@ -49,15 +55,19 @@ class NoeudCognitif:
         question = question.lower().strip()
         if not self.parle:
             return f"{self.nom} est silencieux."
+
         if question == "/start":
             return f"Bonjour, je suis {self.nom}. Je suis là pour te guider avec clarté et stratégie."
+
         for cle, reponse in self.reponses.items():
             if cle in question:
                 return reponse
+
         for enfant in self.enfants:
             reponse = enfant.repondre(question)
             if "je ne comprends pas" not in reponse.lower():
                 return reponse
+
         gpt_reply = self.appel_gpt(question)
         self.memoire[datetime.now().isoformat()] = {"question": question, "réponse": gpt_reply}
         self.sauvegarder_memoire()
@@ -79,7 +89,7 @@ class NoeudCognitif:
     def charger_memoire(self):
         if not self.fichier_memoire:
             return {}
-        path = os.path.join(MEMOIRE_DIR, self.fichier_memoire)
+        path = os.path.join("memoire", self.fichier_memoire)
         if os.path.exists(path):
             try:
                 with open(path, "r") as f:
@@ -91,37 +101,24 @@ class NoeudCognitif:
     def sauvegarder_memoire(self):
         if not self.fichier_memoire:
             return
-        path = os.path.join(MEMOIRE_DIR, self.fichier_memoire)
+        path = os.path.join("memoire", self.fichier_memoire)
         with open(path, "w") as f:
             json.dump(self.memoire, f, indent=2)
 
-# 🌱 Noeuds IA
+# 🌱 Noeuds
 nkouma = NoeudCognitif("Nkouma", "Modératrice éthique", "nkouma.json", reponses={"insulter": "Merci de reformuler avec bienveillance."})
 miss = NoeudCognitif("Miss AfrikyIA", "Coach business", "miss_afrikyia.json", reponses={"plan": "Un bon plan commence par une bonne vision."})
 sheteachia = NoeudCognitif("SheTeachIA", "Mentor éducatif", "sheteachia.json", reponses={"devoirs": "Je peux t’aider pour les devoirs."})
 nkouma.ajouter_enfant(miss)
 nkouma.ajouter_enfant(sheteachia)
 
-# 🎧 Audio
-@app.route('/send-audio/<chat_id>', methods=['GET'])
-def send_audio(chat_id):
-    texte = "Bonjour, je suis Miss AfrikyIA, ta coach business. Ensemble, sortons de la survie."
-    filename = f"audio_{chat_id}.mp3"
-    tts = gTTS(texte, lang="fr")
-    tts.save(filename)
-    with open(filename, 'rb') as audio:
-        files = {'voice': audio}
-        data = {'chat_id': chat_id}
-        requests.post(f"{TELEGRAM_API_URL}/sendVoice", files=files, data=data)
-    os.remove(filename)
-    return f"✅ Audio envoyé à {chat_id}"
-
-# ✅ Menus & Forfaits
+# ✅ MENUS & INLINE
 
 def send_message(chat_id, text, reply_markup=None):
     payload = {
         "chat_id": chat_id,
         "text": text,
+        "parse_mode": "Markdown",
         "reply_markup": json.dumps(reply_markup) if reply_markup else None
     }
     requests.post(f"{TELEGRAM_API_URL}/sendMessage", json=payload)
@@ -155,14 +152,59 @@ def show_inline_info(chat_id, forfait_key):
         return
 
     text = (
-        f"🎟️ {infos['nom']}\n"
-        f"⏳ {infos['duree']}\n"
-        f"📦 {infos['contenu']}\n"
-        f"📲 Paiement Airtel : +242 057538060"
+        f"🎟️ *{infos['nom']}*\n"
+        f"⏳ *{infos['duree']}*\n"
+        f"📦 *{infos['contenu']}*\n"
+        f"📲 Paiement Airtel : [📞 +242 057538060](tel:+242057538060)"
     )
-    button = [[{"text": "✅ J’ai payé", "callback_data": "preuve_envoyee"}]]
+    button = [[{"text": "✅ J’ai payé", "callback_data": f"activate_{forfait_key}"}]]
     send_message(chat_id, text, {"inline_keyboard": button})
 
+# 🧠 Activation via GET
+@app.route("/activate", methods=["GET"])
+def activate():
+    chat_id = request.args.get("chat_id")
+    forfait = request.args.get("forfait")
+    if not chat_id or not forfait:
+        return "❌ Manque chat_id ou forfait"
+    if forfait not in FORFAITS:
+        return "❌ Forfait inconnu"
+
+    UTILISATEURS[str(chat_id)] = {
+        "forfait": forfait,
+        "quota_restant": FORFAITS[forfait]["messages"]
+    }
+    with open(UTILISATEURS_PATH, "w", encoding="utf-8") as f:
+        json.dump(UTILISATEURS, f, indent=2)
+
+    send_message(chat_id, f"🎉 Ton forfait *{FORFAITS[forfait]['nom']}* a été activé !")
+    return "✅ Forfait activé"
+
+# 🎧 Vocal IA
+@app.route('/send-audio/<chat_id>', methods=['GET'])
+def send_audio(chat_id):
+    utilisateur = UTILISATEURS.get(str(chat_id))
+    if not utilisateur or utilisateur.get("quota_restant", 0) <= 0:
+        send_message(chat_id, "⚠️ Tu n’as plus de messages disponibles.")
+        return "Quota épuisé"
+
+    texte = "Bonjour, je suis Miss AfrikyIA, ta coach business. Ensemble, sortons de la survie."
+    filename = f"audio_{chat_id}.mp3"
+    tts = gTTS(texte, lang="fr")
+    tts.save(filename)
+    with open(filename, 'rb') as audio:
+        files = {'voice': audio}
+        data = {'chat_id': chat_id}
+        requests.post(f"{TELEGRAM_API_URL}/sendVoice", files=files, data=data)
+    os.remove(filename)
+
+    utilisateur["quota_restant"] -= 1
+    with open(UTILISATEURS_PATH, "w", encoding="utf-8") as f:
+        json.dump(UTILISATEURS, f, indent=2)
+
+    return f"✅ Audio envoyé à {chat_id}"
+
+# 📡 Webhook
 @app.route("/webhook", methods=["POST", "GET"])
 def webhook():
     if request.method == "GET":
@@ -170,13 +212,30 @@ def webhook():
 
     data = request.json
     chat_id = data.get("message", {}).get("chat", {}).get("id") or data.get("callback_query", {}).get("from", {}).get("id")
+    if not chat_id:
+        return "❌ Pas de chat_id"
 
+    utilisateur = UTILISATEURS.get(str(chat_id))
     if "message" in data:
         text = data["message"].get("text", "")
+
+        # Blocage si quota épuisé
+        if utilisateur and utilisateur.get("quota_restant", 0) <= 0:
+            send_message(chat_id, "⚠️ Ton quota est épuisé. Merci d’activer un nouveau forfait.")
+            return "blocked"
+
         if text == "/start":
             show_main_menu(chat_id)
             return "menu"
+
         response = nkouma.repondre(text)
+
+        if utilisateur:
+            utilisateur["quota_restant"] -= 1
+            with open(UTILISATEURS_PATH, "w", encoding="utf-8") as f:
+                json.dump(UTILISATEURS, f, indent=2)
+            response += f"\n\n🧮 Il te reste *{utilisateur['quota_restant']} messages*."
+
         send_message(chat_id, response)
         return "ok"
 
@@ -191,58 +250,33 @@ def webhook():
             pole = data_cb.split("_")[1]
             show_forfaits(chat_id, pole)
         elif data_cb.startswith("infos_"):
-            forfait_key = data_cb.replace("infos_", "")
-            show_inline_info(chat_id, forfait_key)
-        elif data_cb == "preuve_envoyee":
-            send_message(chat_id, "Merci ! Nous allons vérifier ta preuve et activer ton forfait si tout est OK.")
+            key = data_cb.replace("infos_", "")
+            show_inline_info(chat_id, key)
+        elif data_cb.startswith("activate_"):
+            forfait_key = data_cb.replace("activate_", "")
+            return activate_forfait_from_callback(chat_id, forfait_key)
         return "callback handled"
 
     return "ok"
 
-@app.route('/activate', methods=['GET'])
-def activate_forfait():
-    chat_id = request.args.get('chat_id')
-    forfait_key = request.args.get('forfait')
-
-    if not chat_id or not forfait_key:
-        return "❌ Paramètres manquants (chat_id ou forfait)."
-
-    try:
-        if os.path.exists(UTILISATEURS_PATH):
-            with open(UTILISATEURS_PATH, "r") as f:
-                utilisateurs = json.load(f)
-        else:
-            utilisateurs = {}
-    except:
-        utilisateurs = {}
-
+def activate_forfait_from_callback(chat_id, forfait_key):
     if forfait_key not in FORFAITS:
-        return "❌ Forfait introuvable."
-
-    utilisateurs[str(chat_id)] = {
+        send_message(chat_id, "❌ Forfait inconnu.")
+        return "nok"
+    UTILISATEURS[str(chat_id)] = {
         "forfait": forfait_key,
-        "activé_le": datetime.now().isoformat()
+        "quota_restant": FORFAITS[forfait_key]["messages"]
     }
-
-    with open(UTILISATEURS_PATH, "w") as f:
-        json.dump(utilisateurs, f, indent=2)
-
-    forfait = FORFAITS[forfait_key]
-    confirmation = (
-        f"✅ Merci pour ton paiement !\n"
-        f"🎟️ Forfait activé : {forfait['nom']}\n"
-        f"⏳ Durée : {forfait['duree']}\n"
-        f"📦 Contenu : {forfait['contenu']}"
-    )
-    send_message(chat_id, confirmation)
-    return "✅ Forfait activé"
+    with open(UTILISATEURS_PATH, "w", encoding="utf-8") as f:
+        json.dump(UTILISATEURS, f, indent=2)
+    send_message(chat_id, f"🎉 Ton forfait *{FORFAITS[forfait_key]['nom']}* a été activé !")
+    return "ok"
 
 @app.route('/simulate', methods=['GET'])
 def simulate():
     r1 = sheteachia.repondre("Comment transmettre l'amour d'apprendre ?")
     r2 = miss.repondre("Peut-on monétiser une pédagogie ?")
-    print("[Simu] Miss → SheTeachIA\n", r1, "\n", r2)
-    return "✅ Simulation IA ok"
+    return f"✅ Simu:\n{r1}\n\n{r2}"
 
 @app.route('/check-ethique', methods=['GET'])
 def check_ethique():
