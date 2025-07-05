@@ -112,6 +112,35 @@ def send_audio_to_telegram(chat_id, file_path):
         data = {'chat_id': chat_id}
         requests.post(url, files=files, data=data)
 
+def send_message(chat_id, text, reply_markup=None):
+    safe_text = (
+        text.replace("*", "\\*")
+            .replace("_", "\\_")
+            .replace("`", "\\`")
+            .replace("[", "\")
+            .replace("]", "\")
+            .replace("(", "\")
+            .replace(")", "\")
+            .replace("~", "\\~")
+            .replace(">", "\\>")
+            .replace("#", "\\#")
+            .replace("+", "\\+")
+            .replace("-", "\\-")
+            .replace("=", "\\=")
+            .replace("|", "\\|")
+            .replace("{", "\\{")
+            .replace("}", "\\}")
+            .replace(".", "\\.")
+            .replace("!", "\\!")
+    )
+    payload = {
+        "chat_id": chat_id,
+        "text": safe_text,
+        "parse_mode": "MarkdownV2",
+        "reply_markup": json.dumps(reply_markup) if reply_markup else None
+    }
+    requests.post(f"{TELEGRAM_API_URL}/sendMessage", json=payload)
+
 @app.route('/send-audio/<chat_id>', methods=['GET'])
 def send_audio(chat_id):
     texte = "Bonjour, je suis Miss AfrikyIA, ta coach business. Ensemble, sortons de la survie."
