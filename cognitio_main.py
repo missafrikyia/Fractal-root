@@ -130,7 +130,7 @@ Durée : {infos['duree']}
 Contenu : {infos['contenu']}
 Prix : {infos['prix']}
 
-Paiement : Airtel Money +242 057538060"
+Paiement : "Airtel Money +242 057538060"
     boutons = [[{"text": "✅ J’ai payé", "callback_data": f"acces_ia"}]]
     send_message(chat_id, texte, {"inline_keyboard": boutons})
 
