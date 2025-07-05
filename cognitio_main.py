@@ -141,13 +141,13 @@ def show_submenu(chat_id, domaine):
     else:
         poles = [("École d’été", "s_ecole"), ("Aide aux devoirs", "s_devoirs")]
     buttons = [[{"text": nom, "callback_data": code}] for nom, code in poles]
-    send_message(chat_id, f"🧭 Choisis un sous-pôle ({domaine.title()}) :", {"inline_keyboard": buttons})
+    send_message(chat_id, f"🛍 Choisis un sous-pôle ({domaine.title()}) :", {"inline_keyboard": buttons})
 
 def show_forfaits(chat_id, pole):
     buttons = []
     for key, infos in FORFAITS.items():
         btn_text = f"{infos['nom']} – {infos['prix']} FCFA"
-        buttons.append([{"text": btn_text, "callback_data": f"infos_{key}"}])
+        buttons.append([[{"text": btn_text, "callback_data": f"infos_{key}"}]])
     send_message(chat_id, f"💸 Choisis ton forfait pour le pôle **{pole}** :", {"inline_keyboard": buttons})
 
 def show_inline_info(chat_id, forfait_key):
@@ -160,10 +160,23 @@ def show_inline_info(chat_id, forfait_key):
         f"🎟️ {infos['nom']}\n"
         f"⏳ {infos['duree']}\n"
         f"📦 {infos['contenu']}\n"
-        f"📲 Paiement Airtel : +242 057538060"
+        f"📲 Paiement Airtel : 📞 +242 057538060"
     )
-    button = [[{"text": "✅ J’ai payé", "callback_data": "preuve_envoyee"}]]
+    button = [[{"text": "✅ J’ai payé", "callback_data": f"activate_{forfait_key}"}]]
     send_message(chat_id, text, {"inline_keyboard": button})
+
+def activate_forfait_from_callback(chat_id, forfait_key):
+    infos = FORFAITS.get(forfait_key)
+    if not infos:
+        send_message(chat_id, "❌ Forfait inconnu. Veuillez réessayer.")
+        return
+    message = (
+        f"🎉 Ton forfait **{infos['nom']}** a été activé !\n"
+        f"📆 Durée : {infos['duree']}\n"
+        f"💬 Contenu : {infos['contenu']}\n"
+        f"📌 Bon coaching !"
+    )
+    send_message(chat_id, message)
 
 @app.route("/webhook", methods=["POST", "GET"])
 def webhook():
@@ -195,8 +208,11 @@ def webhook():
         elif data_cb.startswith("infos_"):
             forfait_key = data_cb.replace("infos_", "")
             show_inline_info(chat_id, forfait_key)
-        elif data_cb == "preuve_envoyee":
-            send_message(chat_id, "Merci ! Nous allons vérifier ta preuve et activer ton forfait si tout est OK.")
+        elif data_cb.startswith("activate_"):
+            forfait_key = data_cb.replace("activate_", "")
+            activate_forfait_from_callback(chat_id, forfait_key)
+
+        requests.post(f"{TELEGRAM_API_URL}/answerCallbackQuery", json={"callback_query_id": callback["id"]})
         return "callback handled"
 
     return "ok"
