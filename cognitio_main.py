@@ -122,7 +122,7 @@ def send_audio(chat_id):
     os.remove(filename)
     return f"✅ Audio envoyé à {chat_id}"
 
-# 💬 Envoi message
+# 💬 Message
 def send_message(chat_id, text, reply_markup=None):
     payload = {
         "chat_id": chat_id,
@@ -132,7 +132,7 @@ def send_message(chat_id, text, reply_markup=None):
     }
     requests.post(f"{TELEGRAM_API_URL}/sendMessage", json=payload)
 
-# 📍 Menu principal
+# 🔘 Menus
 def show_main_menu(chat_id):
     buttons = [
         [{"text": "📈 Business", "callback_data": "p_business"}],
@@ -140,7 +140,6 @@ def show_main_menu(chat_id):
     ]
     send_message(chat_id, "👋 Bonjour ! Qu’est-ce qu’on augmente aujourd’hui ?", {"inline_keyboard": buttons})
 
-# 📂 Sous-pôles
 def show_submenu(chat_id, domaine):
     if domaine == "business":
         poles = [("Plan", "s_plan"), ("Visuel", "s_visuel"), ("Branding", "s_branding")]
@@ -149,7 +148,6 @@ def show_submenu(chat_id, domaine):
     buttons = [[{"text": nom, "callback_data": code}] for nom, code in poles]
     send_message(chat_id, f"🧭 Choisis un sous-pôle ({domaine.title()}) :", {"inline_keyboard": buttons})
 
-# 💸 Forfaits
 def show_forfaits(chat_id, pole):
     buttons = []
     for key, infos in FORFAITS.items():
@@ -157,10 +155,11 @@ def show_forfaits(chat_id, pole):
         buttons.append([{"text": btn_text, "callback_data": f"pay_{key}"}])
     send_message(chat_id, f"💸 Choisis ton forfait pour le pôle **{pole}** :", {"inline_keyboard": buttons})
 
-# 📲 Paiement
 def handle_payment(chat_id, forfait):
+    print(f"[PAYMENT TRIGGERED] Forfait demandé : {forfait}")
     infos = FORFAITS.get(forfait)
     if not infos:
+        print("[ERREUR] Forfait non trouvé dans le JSON")
         send_message(chat_id, "❌ Forfait non reconnu.")
         return
 
@@ -173,19 +172,24 @@ def handle_payment(chat_id, forfait):
         f"`+242 057538060`\n\n"
         f"📤 Merci d’envoyer ta preuve de paiement ici pour activer ton forfait."
     )
+    print(f"[MESSAGE ENVOYÉ] :\n{msg}")
     send_message(chat_id, msg)
 
-# ✅ Webhook
+# 🔁 Webhook avec debug
 @app.route("/webhook", methods=["POST", "GET"])
 def webhook():
     if request.method == "GET":
         return "Webhook prêt ✅"
 
     data = request.json
-    chat_id = data.get("message", {}).get("chat", {}).get("id") or data.get("callback_query", {}).get("from", {}).get("id")
+    chat_id = (
+        data.get("message", {}).get("chat", {}).get("id") or
+        data.get("callback_query", {}).get("from", {}).get("id")
+    )
 
     if "message" in data:
         text = data["message"].get("text", "")
+        print(f"[MESSAGE REÇU] : {text}")
         if text == "/start":
             show_main_menu(chat_id)
             return "menu"
@@ -196,30 +200,20 @@ def webhook():
     if "callback_query" in data:
         callback = data["callback_query"]
         data_cb = callback["data"]
+        print(f"[CALLBACK DATA REÇU] : {data_cb}")
 
         if data_cb.startswith("p_"):
             domaine = data_cb.split("_")[1]
             show_submenu(chat_id, domaine)
+
         elif data_cb.startswith("s_"):
             pole = data_cb.split("_")[1]
             show_forfaits(chat_id, pole)
+
         elif data_cb.startswith("pay_"):
             forfait = data_cb.replace("pay_", "")
             handle_payment(chat_id, forfait)
+
         return "callback handled"
 
     return "ok"
-
-# 🧪 Simulation
-@app.route('/simulate', methods=['GET'])
-def simulate():
-    r1 = sheteachia.repondre("Comment transmettre l'amour d'apprendre ?")
-    r2 = miss.repondre("Peut-on monétiser une pédagogie ?")
-    print("[Simu] Miss → SheTeachIA\n", r1, "\n", r2)
-    return "✅ Simulation IA ok"
-
-# 🧹 Éthique
-@app.route('/check-ethique', methods=['GET'])
-def check_ethique():
-    message = request.args.get("message", "")
-    return {"analyse": nkouma.repondre(message)}
