@@ -1,20 +1,20 @@
 {
   "basique": {
-    "nom": "Basique",
+    "nom": " Forfait IA Basique",
     "prix": 1000,
-    "description": "Réponses simples et rapides dans un seul pôle.",
-    "duree": "3 jours"
+    "description": " 10 Réponses simples et rapides",
+    "duree": "1 jour"
   },
   "premium": {
-    "nom": "Premium",
+    "nom": "Forfait IA Premium",
     "prix": 5000,
-    "description": "Réponses détaillées, visuels personnalisés, suivi 7 jours.",
-    "duree": "7 jours"
+    "description": " 60 Réponses détaillées, ou 3 visuels personnalisés, suivi 3 jours.",
+    "duree": "3 jours"
   },
   "vip": {
-    "nom": "VIP",
+    "nom": "Forfait IA VIP",
     "prix": 10000,
-    "description": "Accès à tous les pôles + IA vocale + support prioritaire.",
-    "duree": "30 jours"
+    "description": "150 + IA vocale + support prioritaire.",
+    "duree": "15 jours "
   }
 }
