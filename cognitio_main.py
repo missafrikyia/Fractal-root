@@ -1,3 +1,5 @@
+# ✅ COGNITIO MAIN SCRIPT - INLINE FORFAITS
+
 from dotenv import load_dotenv
 load_dotenv()
 
@@ -11,7 +13,7 @@ from datetime import datetime
 
 app = Flask(__name__)
 
-# 🔐 Clés d'API et constantes
+# 🔐 Clés API
 TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 TELEGRAM_API_URL = f"https://api.telegram.org/bot{TOKEN}"
@@ -105,16 +107,21 @@ nkouma.ajouter_enfant(miss)
 nkouma.ajouter_enfant(sheteachia)
 
 # 🎧 Audio
+
+def send_audio_to_telegram(chat_id, file_path):
+    url = f"{TELEGRAM_API_URL}/sendVoice"
+    with open(file_path, 'rb') as audio:
+        files = {'voice': audio}
+        data = {'chat_id': chat_id}
+        requests.post(url, files=files, data=data)
+
 @app.route('/send-audio/<chat_id>', methods=['GET'])
 def send_audio(chat_id):
     texte = "Bonjour, je suis Miss AfrikyIA, ta coach business. Ensemble, sortons de la survie."
     filename = f"audio_{chat_id}.mp3"
     tts = gTTS(texte, lang="fr")
     tts.save(filename)
-    with open(filename, 'rb') as audio:
-        files = {'voice': audio}
-        data = {'chat_id': chat_id}
-        requests.post(f"{TELEGRAM_API_URL}/sendVoice", files=files, data=data)
+    send_audio_to_telegram(chat_id, filename)
     os.remove(filename)
     return f"✅ Audio envoyé à {chat_id}"
 
@@ -124,6 +131,7 @@ def send_message(chat_id, text, reply_markup=None):
     payload = {
         "chat_id": chat_id,
         "text": text,
+        "parse_mode": "Markdown",
         "reply_markup": json.dumps(reply_markup) if reply_markup else None
     }
     requests.post(f"{TELEGRAM_API_URL}/sendMessage", json=payload)
@@ -141,43 +149,40 @@ def show_submenu(chat_id, domaine):
     else:
         poles = [("École d’été", "s_ecole"), ("Aide aux devoirs", "s_devoirs")]
     buttons = [[{"text": nom, "callback_data": code}] for nom, code in poles]
-    send_message(chat_id, f"🛍 Choisis un sous-pôle ({domaine.title()}) :", {"inline_keyboard": buttons})
+    send_message(chat_id, f"🧭 Choisis un sous-pôle ({domaine.title()}) :", {"inline_keyboard": buttons})
 
 def show_forfaits(chat_id, pole):
     buttons = []
     for key, infos in FORFAITS.items():
         btn_text = f"{infos['nom']} – {infos['prix']} FCFA"
-        buttons.append([[{"text": btn_text, "callback_data": f"infos_{key}"}]])
-    send_message(chat_id, f"💸 Choisis ton forfait pour le pôle **{pole}** :", {"inline_keyboard": buttons})
+        buttons.append([{"text": btn_text, "callback_data": f"infos_{key}"}])
+    send_message(chat_id, f"💸 Choisis ton forfait pour le pôle {pole} :", {"inline_keyboard": buttons})
 
-def show_inline_info(chat_id, forfait_key):
-    infos = FORFAITS.get(forfait_key)
+def show_forfait_infos(chat_id, forfait):
+    infos = FORFAITS.get(forfait)
     if not infos:
         send_message(chat_id, "❌ Forfait non reconnu.")
         return
 
-    text = (
-        f"🎟️ {infos['nom']}\n"
-        f"⏳ {infos['duree']}\n"
+    msg = (
+        f"🎟️ *{infos['nom']}* sélectionné\n"
+        f"⏳ Valide *{infos['duree']}*\n"
         f"📦 {infos['contenu']}\n"
-        f"📲 Paiement Airtel : 📞 +242 057538060"
+        f"📲 Paiement par Airtel Money : `+242 057538060`"
     )
-    button = [[{"text": "✅ J’ai payé", "callback_data": f"activate_{forfait_key}"}]]
-    send_message(chat_id, text, {"inline_keyboard": button})
 
-def activate_forfait_from_callback(chat_id, forfait_key):
-    infos = FORFAITS.get(forfait_key)
-    if not infos:
-        send_message(chat_id, "❌ Forfait inconnu. Veuillez réessayer.")
-        return
-    message = (
-        f"🎉 Ton forfait **{infos['nom']}** a été activé !\n"
-        f"📆 Durée : {infos['duree']}\n"
-        f"💬 Contenu : {infos['contenu']}\n"
-        f"📌 Bon coaching !"
-    )
-    send_message(chat_id, message)
+    bouton = {
+        "inline_keyboard": [
+            [{
+                "text": "✅ J’ai payé – Lancer l’IA",
+                "url": "https://t.me/MissAfrikyIAlacoachbot"
+            }]
+        ]
+    }
 
+    send_message(chat_id, msg, reply_markup=bouton)
+
+# ✅ Webhook complet
 @app.route("/webhook", methods=["POST", "GET"])
 def webhook():
     if request.method == "GET":
@@ -206,17 +211,14 @@ def webhook():
             pole = data_cb.split("_")[1]
             show_forfaits(chat_id, pole)
         elif data_cb.startswith("infos_"):
-            forfait_key = data_cb.replace("infos_", "")
-            show_inline_info(chat_id, forfait_key)
-        elif data_cb.startswith("activate_"):
-            forfait_key = data_cb.replace("activate_", "")
-            activate_forfait_from_callback(chat_id, forfait_key)
+            forfait = data_cb.replace("infos_", "")
+            show_forfait_infos(chat_id, forfait)
 
-        requests.post(f"{TELEGRAM_API_URL}/answerCallbackQuery", json={"callback_query_id": callback["id"]})
         return "callback handled"
 
     return "ok"
 
+# ✅ Simulation IA
 @app.route('/simulate', methods=['GET'])
 def simulate():
     r1 = sheteachia.repondre("Comment transmettre l'amour d'apprendre ?")
@@ -224,7 +226,9 @@ def simulate():
     print("[Simu] Miss → SheTeachIA\n", r1, "\n", r2)
     return "✅ Simulation IA ok"
 
+# ✅ Éthique
 @app.route('/check-ethique', methods=['GET'])
 def check_ethique():
     message = request.args.get("message", "")
     return {"analyse": nkouma.repondre(message)}
+
