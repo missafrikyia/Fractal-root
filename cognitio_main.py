@@ -1,6 +1,6 @@
 from flask import Flask, request, jsonify
 from langdetect import detect
-import openai
+from openai import OpenAI
 import os
 import requests
 from gtts import gTTS
@@ -12,7 +12,7 @@ app = Flask(__name__)
 BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 TELEGRAM_URL = f"https://api.telegram.org/bot{BOT_TOKEN}"
-openai.api_key = OPENAI_API_KEY
+client = OpenAI(api_key=OPENAI_API_KEY)
 
 # 📁 Sessions utilisateurs
 user_sessions = {}
@@ -57,7 +57,7 @@ def send_audio(chat_id, texte):
         )
     os.remove(filename)
 
-# ⏰ Route CRON vocale
+# ⏰ Route CRON vocale pour Render
 @app.route("/send-morning", methods=["GET"])
 def send_morning():
     texte = "Bonjour ☀️ ! Voici ton message vocal du matin. Tu es capable, tu es digne, et cette journée est à toi !"
@@ -65,57 +65,15 @@ def send_morning():
         send_audio(chat_id, texte)
     return jsonify({"status": "envoyé à tous"}), 200
 
-# 🤖 Webhook central (message + inline)
+# 🤖 Accueil Webhook
 @app.route("/webhook", methods=["POST"])
 def webhook():
     data = request.get_json()
-
-    # 📩 Message texte
     if "message" in data:
         chat_id = data["message"]["chat"]["id"]
         user_chat_ids.add(chat_id)
         texte = data["message"].get("text", "")
         handle_text(chat_id, texte)
-
-    # 🔁 Callback inline
-    elif "callback_query" in data:
-        cb = data["callback_query"]
-        chat_id = cb["message"]["chat"]["id"]
-        data_cb = cb["data"]
-        session = user_sessions.setdefault(chat_id, {})
-
-        if data_cb.startswith("lang:"):
-            session["langue"] = data_cb.split(":")[1]
-            show_tone_menu(chat_id)
-
-        elif data_cb.startswith("tone:"):
-            session["tone"] = data_cb.split(":")[1]
-            send_modes(chat_id)
-
-        elif data_cb.startswith("mode:"):
-            mode = data_cb.split(":")[1]
-            session[mode] = not session.get(mode, False)
-            send_modes(chat_id)
-
-        elif data_cb == "continue":
-            session["étape"] = "nom"
-            send_message(chat_id, "📝 Donne un prénom à ton ANI :")
-
-        elif data_cb.startswith("pole:"):
-            session["pole"] = data_cb.split(":")[1]
-            show_forfaits(chat_id)
-
-        elif data_cb.startswith("pay:"):
-            session["forfait"] = data_cb.split(":")[1]
-            try:
-                msg = generer_bienvenue(session)
-                send_message(chat_id, f"✅ ANI créée avec succès !\n\n{msg}")
-                send_audio(chat_id, msg)
-            except Exception as e:
-                send_message(chat_id, f"❌ Une erreur est survenue : {str(e)}")
-
-        user_sessions[chat_id] = session
-
     return jsonify({"ok": True})
 
 # 📩 Message texte
@@ -139,7 +97,7 @@ def handle_text(chat_id, text):
     else:
         send_message(chat_id, "Utilise les boutons ci-dessous pour commencer.")
 
-# 🧠 GPT : Message de bienvenue
+# 🧠 Générer message de bienvenue avec GPT-4
 def generer_bienvenue(session):
     nom = session.get("nom", "ton ANI")
     langue = session.get("langue", "Français")
@@ -156,14 +114,14 @@ def generer_bienvenue(session):
         instruction += "Parle lentement, avec des mots simples. "
     instruction += f"Réponds uniquement en {langue.lower()}."
 
-    completion = openai.ChatCompletion.create(
+    completion = client.chat.completions.create(
         model="gpt-4",
         messages=[
             {"role": "system", "content": instruction},
             {"role": "user", "content": "Génère un message d’accueil chaleureux mais ne commence pas par 'Bonjour'. Sois simple, bienveillant(e) et encourageant(e)."}
         ]
     )
-    return completion['choices'][0]['message']['content']
+    return completion.choices[0].message.content
 
 # 📍 Menus inline
 def show_language_menu(chat_id):
@@ -203,7 +161,51 @@ def send_inline_menu(chat_id, texte, boutons):
         "reply_markup": keyboard
     })
 
-# ✅ Ping route
+# 🔁 Callbacks inline
+@app.route("/callback", methods=["POST"])
+def callback():
+    data = request.get_json()
+    if "callback_query" in data:
+        cb = data["callback_query"]
+        chat_id = cb["message"]["chat"]["id"]
+        data_cb = cb["data"]
+        session = user_sessions.setdefault(chat_id, {})
+
+        if data_cb.startswith("lang:"):
+            session["langue"] = data_cb.split(":")[1]
+            show_tone_menu(chat_id)
+
+        elif data_cb.startswith("tone:"):
+            session["tone"] = data_cb.split(":")[1]
+            send_modes(chat_id)
+
+        elif data_cb.startswith("mode:"):
+            mode = data_cb.split(":")[1]
+            session[mode] = not session.get(mode, False)
+            send_modes(chat_id)
+
+        elif data_cb == "continue":
+            session["étape"] = "nom"
+            send_message(chat_id, "📝 Donne un prénom à ton ANI :")
+
+        elif data_cb.startswith("pole:"):
+            session["pole"] = data_cb.split(":")[1]
+            show_forfaits(chat_id)
+
+        elif data_cb.startswith("pay:"):
+            session["forfait"] = data_cb.split(":")[1]
+            try:
+                msg = generer_bienvenue(session)
+                send_message(chat_id, f"✅ ANI créée avec succès !\n\n{msg}")
+                send_audio(chat_id, msg)
+            except Exception as e:
+                send_message(chat_id, f"❌ Une erreur est survenue : {str(e)}")
+
+        user_sessions[chat_id] = session
+
+    return jsonify({"ok": True})
+
+# ✅ Test de vie
 @app.route("/", methods=["GET"])
 def home():
-    return "✅ Cognitio ANI est en ligne"
+    return "✅ ANI Creator en ligne"
