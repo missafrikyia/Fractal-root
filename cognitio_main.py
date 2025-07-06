@@ -183,9 +183,35 @@ def show_pole_menu(chat_id):
     send_inline_menu(chat_id, "📍 Choisis un pôle :", boutons)
 
 def show_forfaits(chat_id):
+    explication = (
+        "📦 *Voici nos forfaits disponibles pour activer ton ANI :*\n\n"
+        "🔹 *Starter – 1000 FCFA*\n"
+        "• 5 messages\n"
+        "• Valable 3 jours\n\n"
+        "🔸 *Standard – 2500 FCFA*\n"
+        "• 15 messages\n"
+        "• Valable 7 jours\n\n"
+        "🔶 *Premium – 5000 FCFA*\n"
+        "• 30 messages\n"
+        "• Valable 15 jours\n\n"
+        "🌟 *Élite – 10 000 FCFA*\n"
+        "• 50 messages\n"
+        "• Valable 30 jours\n\n"
+        "_Chaque message correspond à une interaction avec ton IA. Une fois le forfait épuisé ou expiré, tu pourras le recharger._"
+    )
+
+    # Envoi du message explicatif avec parse_mode Markdown
+    requests.post(f"{TELEGRAM_URL}/sendMessage", json={
+        "chat_id": chat_id,
+        "text": explication,
+        "parse_mode": "Markdown"
+    })
+
+    # Boutons inline avec les forfaits
     boutons = [{"text": f["label"], "callback_data": f"pay:{key}"} for key, f in FORFAITS.items()]
-    send_message(chat_id, "📦 Voici nos forfaits pour activer ton ANI :")
-    send_inline_menu(chat_id, "💰 Choisis ton forfait :", boutons)
+    send_inline_menu(chat_id, "💰 Choisis ton forfait ci-dessous :", boutons)
+
+
 
 # 📤 Fonctions d’envoi
 def send_message(chat_id, texte):
