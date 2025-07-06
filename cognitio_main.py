@@ -1,4 +1,4 @@
-defrom flask import Flask, request, jsonify
+from flask import Flask, request, jsonify
 from langdetect import detect
 from openai import OpenAI
 import os, requests, json
