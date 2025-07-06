@@ -137,9 +137,10 @@ def show_tone_menu(chat_id):
     send_inline_menu(chat_id, "🎭 Choisis le ton de ton ANI :", boutons)
 
 def send_modes(chat_id):
+    session = user_sessions.get(chat_id, {})
     boutons = [
-        {"text": "👶 Mode parental", "callback_data": "mode:parental"},
-        {"text": "🧓 Mode senior", "callback_data": "mode:senior"},
+        {"text": f"👶 Mode parental {'✅' if session.get('parental') else ''}", "callback_data": "mode:parental"},
+        {"text": f"🧓 Mode senior {'✅' if session.get('senior') else ''}", "callback_data": "mode:senior"},
         {"text": "⏭️ Continuer", "callback_data": "continue"}
     ]
     send_inline_menu(chat_id, "🔧 Activer un mode spécial ?", boutons)
@@ -185,6 +186,8 @@ def handle_callback(data):
     elif data_cb.startswith("mode:"):
         mode = data_cb.split(":", 1)[1]
         session[mode] = not session.get(mode, False)
+        etat = "activé ✅" if session[mode] else "désactivé ❌"
+        send_message(chat_id, f"🔧 Mode {mode} : {etat}")
         send_modes(chat_id)
 
     elif data_cb == "continue":
