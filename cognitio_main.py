@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify
+defrom flask import Flask, request, jsonify
 from langdetect import detect
 from openai import OpenAI
 import os, requests, json
@@ -193,12 +193,12 @@ def generer_bienvenue(session):
     senior = session.get("senior", False)
 
     instruction = f"Tu es une IA {tone}, nommée {nom}, pour {profil}. Pôle : {pole}. "
-if parental:
-    instruction += "Langage protégé. "
-if senior:
-    instruction += "Parle lentement, avec des mots simples. "
-instruction += f"Réponds uniquement en {langue.lower()}. "
-instruction += "Tu peux aussi répondre en vocal grâce à une synthèse vocale. Si l'utilisateur ne peut pas écrire, propose-lui de lui répondre à l'oral. "
+    if parental:
+        instruction += "Langage protégé. "
+    if senior:
+        instruction += "Parle lentement, avec des mots simples. "
+    instruction += f"Réponds uniquement en {langue.lower()}. "
+    instruction += "Tu peux aussi répondre en vocal grâce à une synthèse vocale. Si l'utilisateur ne peut pas écrire, propose-lui de lui répondre à l'oral. "
 
     user_prompt = (
         f"Présente-toi comme une IA nommée {nom}, conçue pour {profil}. "
@@ -213,7 +213,7 @@ instruction += "Tu peux aussi répondre en vocal grâce à une synthèse vocale.
         ]
     )
     return completion.choices[0].message.content
-
+    
 # 📍 Menus inline
 def show_language_menu(chat_id):
     boutons = [{"text": lang, "callback_data": f"lang:{lang}"} for lang in LANGUES]
