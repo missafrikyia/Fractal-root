@@ -63,20 +63,17 @@ def send_morning():
         send_audio(chat_id, texte)
     return jsonify({"status": "envoyé à tous"}), 200
 
-# 🤖 Webhook Telegram (gère aussi les boutons inline)
+# 🤖 Webhook Telegram
 @app.route("/webhook", methods=["POST"])
 def webhook():
     data = request.get_json()
-
     if "callback_query" in data:
         return handle_callback(data)
-
     if "message" in data:
         chat_id = data["message"]["chat"]["id"]
         user_chat_ids.add(chat_id)
         texte = data["message"].get("text", "")
         handle_text(chat_id, texte)
-
     return jsonify({"ok": True})
 
 # 📩 Traitement texte
@@ -100,12 +97,39 @@ def handle_text(chat_id, text):
             send_message(chat_id, "❌ Contenu inapproprié.")
 
     elif session.get("étape") == "conversation":
-        send_message(chat_id, "💬 [ANI] Merci pour ton message. Tu peux discuter avec moi maintenant.")
+        # 🎯 Génère réponse GPT selon le contexte
+        nom = session.get("nom", "ton ANI")
+        langue = session.get("langue", "Français")
+        tone = session.get("tone", "bienvaillante")
+        profil = session.get("profil", "une personne")
+        pole = session.get("pole", "général")
+        parental = session.get("parental", False)
+        senior = session.get("senior", False)
+
+        instruction = f"Tu es une IA {tone}, nommée {nom}, pour {profil}. Pôle : {pole}. "
+        if parental:
+            instruction += "Langage protégé. "
+        if senior:
+            instruction += "Parle lentement, avec des mots simples. "
+        instruction += f"Réponds uniquement en {langue.lower()}."
+
+        try:
+            completion = client.chat.completions.create(
+                model="gpt-4",
+                messages=[
+                    {"role": "system", "content": instruction},
+                    {"role": "user", "content": text}
+                ]
+            )
+            reponse = completion.choices[0].message.content
+            send_message(chat_id, reponse)
+        except Exception as e:
+            send_message(chat_id, f"❌ Erreur GPT : {str(e)}")
 
     else:
         send_message(chat_id, "Utilise les boutons ci-dessous pour commencer.")
 
-# 🧠 Générer message GPT
+# 🧠 Générer message de bienvenue
 def generer_bienvenue(session):
     nom = session.get("nom", "ton ANI")
     langue = session.get("langue", "Français")
@@ -122,11 +146,16 @@ def generer_bienvenue(session):
         instruction += "Parle lentement, avec des mots simples. "
     instruction += f"Réponds uniquement en {langue.lower()}."
 
+    user_prompt = (
+        f"Présente-toi comme une IA nommée {nom}, conçue pour {profil}. "
+        f"Sois chaleureuse, adapte ton ton ({tone}). Termine par : 'Que puis-je faire pour toi aujourd’hui ?'"
+    )
+
     completion = client.chat.completions.create(
         model="gpt-4",
         messages=[
             {"role": "system", "content": instruction},
-            {"role": "user", "content": "Génère un message d’accueil chaleureux mais ne commence pas par 'Bonjour'. Sois simple, bienveillant(e) et encourageant(e)."}
+            {"role": "user", "content": user_prompt}
         ]
     )
     return completion.choices[0].message.content
@@ -170,7 +199,7 @@ def send_inline_menu(chat_id, texte, boutons):
         "reply_markup": keyboard
     })
 
-# 🔁 Gestion centralisée des callbacks
+# 🔁 Callback centralisé (inchangé)
 def handle_callback(data):
     cb = data["callback_query"]
     chat_id = cb["message"]["chat"]["id"]
@@ -210,7 +239,7 @@ def handle_callback(data):
                 send_message(chat_id, f"✅ ANI créée avec succès !\n\n{msg}")
                 send_audio(chat_id, msg)
                 session["ani_crée"] = True
-                session["étape"] = "conversation"  # 🟢 AJOUT ICI
+                session["étape"] = "conversation"
             except Exception as e:
                 send_message(chat_id, f"❌ Erreur : {str(e)}")
         else:
@@ -219,7 +248,7 @@ def handle_callback(data):
     user_sessions[chat_id] = session
     return jsonify({"ok": True})
 
-# ✅ Test route
+# ✅ Route test
 @app.route("/", methods=["GET"])
 def home():
     return "✅ ANI Creator en ligne"
