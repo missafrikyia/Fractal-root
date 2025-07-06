@@ -1,176 +1,113 @@
-# ✅ SCRIPT COMPLET – ANI Creator Bot avec Pôles, GPT, Éthique (Nkouma), Profil & Forfaits
-
 from flask import Flask, request
 import openai
-import json
 import os
+import requests
+import json
 
 app = Flask(__name__)
 
-# 🔐 Clés API
-BOT_TOKEN = "TON_TELEGRAM_BOT_TOKEN"
-OPENAI_API_KEY = "TON_OPENAI_KEY"
+BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+TELEGRAM_URL = f"https://api.telegram.org/bot{BOT_TOKEN}"
 openai.api_key = OPENAI_API_KEY
 
 user_sessions = {}
+violation_counts = {}
 
-# 📌 Données de base
 LANGUES = ["Français", "Anglais", "Swahili", "Lingala", "Wolof", "Arabe", "Portugais"]
-
 TONS = {
-    "gentille": "😊 Gentille",
-    "strategique": "📊 Stratégique",
-    "zen": "🧘 Zen",
-    "motivation": "🔥 Motivation"
+    "gentille": "😊 Gentille", "strategique": "📊 Stratégique",
+    "zen": "🧘 Zen", "motivation": "🔥 Motivation"
 }
-
+POLES = [
+    "🧠 Éducation", "💼 Business", "🧘 Bien-être", "❤️ Maternité", "👵 SeniorCare",
+    "🧒 Enfant", "📖 Foi", "❤️ Amour", "💊 Santé"
+]
 FORFAITS = {
     "essentiel": "💡 Essentiel – 1000 FCFA",
     "premium": "🚀 Premium – 2500 FCFA",
     "vip": "👑 VIP – 5000 FCFA"
 }
 
-POLES = [
-    "🧠 Éducation",
-    "💼 Business",
-    "🧘 Bien-être",
-    "❤️ Maternité",
-    "👵 SeniorCare",
-    "🧒 Enfant",
-    "🛡️ Éthique",
-    "📖 Foi/Spiritualité",
-    "❤️ Amour",
-    "💊 Santé"
-]
+# 🔐 Nkouma : filtre moral
+def nkouma_guard(text, chat_id):
+    interdits = ["viol", "suicide", "pédoporno", "tuer", "esclavage", "arme", "insulte", "porno"]
+    if any(m in text.lower() for m in interdits):
+        violation_counts[chat_id] = violation_counts.get(chat_id, 0) + 1
+        if violation_counts[chat_id] >= 3:
+            send_text(chat_id, "🚨 Tu as dépassé les limites autorisées. Ce comportement sera signalé.")
+        else:
+            send_text(chat_id, "⛔ Contenu bloqué par la cellule éthique Nkouma.")
+        return False
+    return True
 
-# 🔐 Nkouma – Filtre éthique
+def send_text(chat_id, message):
+    requests.post(f"{TELEGRAM_URL}/sendMessage", json={
+        "chat_id": chat_id,
+        "text": message
+    })
 
-def nkouma_guard(user_input, parental=False):
-    interdits_base = ["viol", "suicide", "pédoporno", "tuer", "arme", "esclavage"]
-    interdits_parental = ["sexe", "nudité", "mort", "insulte", "démon", "diable", "sang"]
-    mots = interdits_base + (interdits_parental if parental else [])
-    return not any(mot in user_input.lower() for mot in mots)
+def send_inline_menu(chat_id, question, options, prefix):
+    buttons = [[{"text": opt, "callback_data": f"{prefix}:{opt}"}] for opt in options]
+    reply_markup = {"inline_keyboard": buttons}
+    requests.post(f"{TELEGRAM_URL}/sendMessage", json={
+        "chat_id": chat_id,
+        "text": question,
+        "reply_markup": reply_markup
+    })
 
-# 🎤 GPT : Génération du message d’accueil
-
-def generer_message_bienvenue(session):
-    langue = session.get("langue", "Français")
-    tone = session.get("tone", "gentille")
-    profil = session.get("profil", "quelqu’un")
-    pole = session.get("pole", "général")
-    parental = session.get("parental", False)
-    senior = session.get("senior", False)
-
-    instruction = f"Tu es une IA {tone} pour {profil}. Pôle : {pole}. "
-    if parental:
-        instruction += "Ton langage est adapté à un environnement protégé. "
-    if senior:
-        instruction += "Tu parles lentement et clairement, avec des mots simples. "
-    instruction += f"Réponds en {langue.lower()} avec douceur."
-
+def generate_ani_intro(session):
+    instruction = (
+        f"Tu es une ANI {session.get('tone', 'gentille')} dédiée à {session.get('profil', 'quelqu’un')}, "
+        f"attachée au pôle {session.get('pole', 'général')}. "
+        "Tu es encadrée par Nkouma, cellule souche éthique. "
+        "Tu ne dois jamais produire de contenu illégal, immoral, haineux ou explicite. "
+        f"Parle en {session.get('langue', 'Français')} avec douceur."
+    )
     completion = openai.ChatCompletion.create(
         model="gpt-4",
         messages=[
             {"role": "system", "content": instruction},
-            {"role": "user", "content": "Génère un message d'accueil."}
+            {"role": "user", "content": "Génère un message d'accueil personnalisé."}
         ]
     )
-    return completion['choices'][0]['message']['content']
+    return completion["choices"][0]["message"]["content"]
 
-# 🧱 Route Webhook
 @app.route('/webhook', methods=["POST"])
 def webhook():
-    update = telebot.types.Update.de_json(request.get_data().decode("utf-8"))
-    bot.process_new_updates([update])
-    return "OK", 200
+    data = request.json
+    message = data.get("message")
+    callback = data.get("callback_query")
 
-# ▶️ /start
-@bot.message_handler(commands=['start'])
-def start(message):
-    user_sessions[message.chat.id] = {}
-    markup = InlineKeyboardMarkup()
-    for lang in LANGUES:
-        markup.add(InlineKeyboardButton(lang, callback_data=f"lang:{lang}"))
-    bot.send_message(message.chat.id, "🌍 Choisis la langue :", reply_markup=markup)
+    if message:
+        chat_id = message["chat"]["id"]
+        text = message.get("text", "")
+        if text == "/start":
+            user_sessions[chat_id] = {}
+            send_inline_menu(chat_id, "🌍 Choisis ta langue :", LANGUES, "lang")
+        elif chat_id in user_sessions and "profil" not in user_sessions[chat_id]:
+            if nkouma_guard(text, chat_id):
+                user_sessions[chat_id]["profil"] = text
+                send_inline_menu(chat_id, "🧭 Choisis un pôle :", POLES, "pole")
 
-# ▶️ Langue → Ton
-@bot.callback_query_handler(func=lambda call: call.data.startswith("lang:"))
-def select_lang(call):
-    lang = call.data.split(":")[1]
-    user_sessions[call.message.chat.id]["langue"] = lang
+    elif callback:
+        chat_id = callback["message"]["chat"]["id"]
+        message_id = callback["message"]["message_id"]
+        data = callback["data"]
+        key, value = data.split(":")
 
-    markup = InlineKeyboardMarkup()
-    for code, label in TONS.items():
-        markup.add(InlineKeyboardButton(label, callback_data=f"tone:{code}"))
-    bot.edit_message_text("🎭 Choisis le ton de ton ANI :", call.message.chat.id, call.message.message_id, reply_markup=markup)
+        session = user_sessions.setdefault(chat_id, {})
+        session[key] = value
 
-# ▶️ Ton → Modes
-@bot.callback_query_handler(func=lambda call: call.data.startswith("tone:"))
-def select_tone(call):
-    tone = call.data.split(":")[1]
-    user_sessions[call.message.chat.id]["tone"] = tone
+        if key == "lang":
+            send_inline_menu(chat_id, "🎭 Choisis un ton :", list(TONS.values()), "tone")
+        elif key == "tone":
+            send_text(chat_id, "✍️ Décris à qui est destinée ton ANI (ex : mon fils autiste, une maman débordée...)")
+        elif key == "pole":
+            send_inline_menu(chat_id, "💰 Choisis ton forfait :", list(FORFAITS.values()), "forfait")
+        elif key == "forfait":
+            message_ani = generate_ani_intro(session)
+            send_text(chat_id, "🎉 ANI générée avec succès !")
+            send_text(chat_id, f"👋 Message d'accueil :\n\n{message_ani}")
 
-    markup = InlineKeyboardMarkup()
-    markup.row(
-        InlineKeyboardButton("👶 Mode parental ❌", callback_data="mode:parental"),
-        InlineKeyboardButton("🧓 Mode senior ❌", callback_data="mode:senior")
-    )
-    markup.add(InlineKeyboardButton("⏭️ Continuer", callback_data="profil"))
-    bot.edit_message_text("🔧 Activer un mode spécial ?", call.message.chat.id, call.message.message_id, reply_markup=markup)
-
-# ▶️ Toggle Mode
-@bot.callback_query_handler(func=lambda call: call.data.startswith("mode:"))
-def toggle_mode(call):
-    mode = call.data.split(":")[1]
-    session = user_sessions[call.message.chat.id]
-    session[mode] = not session.get(mode, False)
-
-    markup = InlineKeyboardMarkup()
-    markup.row(
-        InlineKeyboardButton(f"👶 Mode parental {'✅' if session.get('parental') else '❌'}", callback_data="mode:parental"),
-        InlineKeyboardButton(f"🧓 Mode senior {'✅' if session.get('senior') else '❌'}", callback_data="mode:senior")
-    )
-    markup.add(InlineKeyboardButton("⏭️ Continuer", callback_data="profil"))
-    bot.edit_message_text("🔧 Mode ajusté. Clique sur ⏭️ pour continuer.", call.message.chat.id, call.message.message_id, reply_markup=markup)
-
-# ▶️ Description Profil
-@bot.callback_query_handler(func=lambda call: call.data == "profil")
-def ask_profil(call):
-    bot.send_message(call.message.chat.id, "✍️ Décris à qui est destinée cette ANI :")
-    bot.register_next_step_handler_by_chat_id(call.message.chat.id, save_profil)
-
-def save_profil(message):
-    if not nkouma_guard(message.text):
-        bot.send_message(message.chat.id, "🚫 Contenu inapproprié bloqué par Nkouma.")
-        return
-
-    user_sessions[message.chat.id]["profil"] = message.text
-    markup = InlineKeyboardMarkup()
-    for pole in POLES:
-        markup.add(InlineKeyboardButton(pole, callback_data=f"pole:{pole}"))
-    bot.send_message(message.chat.id, "🔍 Choisis le **pôle** de ton ANI :", reply_markup=markup)
-
-# ▶️ Sauver Pôle → Forfait
-@bot.callback_query_handler(func=lambda call: call.data.startswith("pole:"))
-def save_pole(call):
-    pole = call.data.split(":")[1]
-    user_sessions[call.message.chat.id]["pole"] = pole
-
-    markup = InlineKeyboardMarkup()
-    for key, label in FORFAITS.items():
-        markup.add(InlineKeyboardButton(label, callback_data=f"forfait:{key}"))
-    bot.send_message(call.message.chat.id, f"✅ Pôle sélectionné : {pole}\n\n💰 Choisis un forfait :", reply_markup=markup)
-
-# ▶️ Forfait → Générer l’ANI
-@bot.callback_query_handler(func=lambda call: call.data.startswith("forfait:"))
-def finalise_ani(call):
-    forfait = call.data.split(":")[1]
-    session = user_sessions[call.message.chat.id]
-    session["forfait"] = forfait
-
-    bot.send_message(call.message.chat.id, "✨ Création de ton ANI...")
-    message_bienvenue = generer_message_bienvenue(session)
-
-    bot.send_message(call.message.chat.id, "✅ ANI créée avec succès !")
-    bot.send_message(call.message.chat.id, f"```json\n{json.dumps(session, indent=2, ensure_ascii=False)}\n```", parse_mode="Markdown")
-    bot.send_message(call.message.chat.id, f"👋 Message d'accueil :\n\n{message_bienvenue}")
+    return "OK"
