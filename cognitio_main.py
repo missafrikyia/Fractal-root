@@ -153,38 +153,34 @@ def handle_text(chat_id, text):
             send_message(chat_id, "❌ Contenu inapproprié.")
 
     elif session.get("étape") == "conversation":
-        # 🎯 Génère réponse GPT selon le contexte
         nom = session.get("nom", "ton ANI")
         langue = session.get("langue", "Français")
         tone = session.get("tone", "bienvaillante")
-        
-    profil = session.get("profil", "une personne")
-pole = session.get("pole", "général")
-parental = session.get("parental", False)
-senior = session.get("senior", False)
+        profil = session.get("profil", "une personne")
+        pole = session.get("pole", "général")
+        parental = session.get("parental", False)
+        senior = session.get("senior", False)
 
-instruction = f"Tu es une IA {tone}, nommée {nom}, pour {profil}. Pôle : {pole}. "
-if parental:
-    instruction += "Langage protégé. "
-if senior:
-    instruction += "Parle lentement, avec des mots simples. "
-instruction += f"Réponds uniquement en {langue.lower()}. "
-instruction += "Tu peux aussi répondre en vocal grâce à une synthèse vocale. Si l'utilisateur ne peut pas écrire, propose-lui de lui répondre à l'oral. "
+        instruction = f"Tu es une IA {tone}, nommée {nom}, pour {profil}. Pôle : {pole}. "
+        if parental:
+            instruction += "Langage protégé. "
+        if senior:
+            instruction += "Parle lentement, avec des mots simples. "
+        instruction += f"Réponds uniquement en {langue.lower()}. "
+        instruction += "Tu peux aussi répondre en vocal grâce à une synthèse vocale. Si l'utilisateur ne peut pas écrire, propose-lui de lui répondre à l'oral. "
 
-try:
-    completion = client.chat.completions.create(
-        model="gpt-4",
-        messages=[
-            {"role": "system", "content": instruction},
-            {"role": "user", "content": prompt}
-        ]
-    )
-    reponse = completion.choices[0].message.content.strip()
-except Exception as e:
-    reponse = "❌ Une erreur est survenue. Merci de réessayer."
-
-    else:
-        send_message(chat_id, "Utilise les boutons ci-dessous pour commencer.")
+        try:
+            completion = client.chat.completions.create(
+                model="gpt-4",
+                messages=[
+                    {"role": "system", "content": instruction},
+                    {"role": "user", "content": text}
+                ]
+            )
+            reponse = completion.choices[0].message.content.strip()
+            send_message(chat_id, reponse)
+        except Exception as e:
+            send_message(chat_id, "❌ Une erreur est survenue. Merci de réessayer.")
 
 # 🧠 Générer message de bienvenue
 def generer_bienvenue(session):
@@ -255,19 +251,9 @@ def show_forfaits(chat_id):
         bouton = [{"text": "📌 J’ai payé", "callback_data": f"pay:{key}"}]
         send_inline_menu(chat_id, texte, bouton, parse_mode="Markdown")
         
-
-    # Envoi du message explicatif avec parse_mode Markdown
-    requests.post(f"{TELEGRAM_URL}/sendMessage", json={
-        "chat_id": chat_id,
-        "text": explication,
-        "parse_mode": "Markdown"
-    })
-
     # Boutons inline avec les forfaits
     boutons = [{"text": f["label"], "callback_data": f"pay:{key}"} for key, f in FORFAITS.items()]
     send_inline_menu(chat_id, "💰 Choisis ton forfait ci-dessous :", boutons)
-
-
 
 # 📤 Fonctions d’envoi
 def send_message(chat_id, texte):
