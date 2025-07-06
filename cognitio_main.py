@@ -163,12 +163,12 @@ def handle_text(chat_id, text):
         senior = session.get("senior", False)
 
         instruction = f"Tu es une IA {tone}, nommée {nom}, pour {profil}. Pôle : {pole}. "
-        if parental:
-            instruction += "Langage protégé. "
-        if senior:
-            instruction += "Parle lentement, avec des mots simples. "
-        instruction += f"Réponds uniquement en {langue.lower()}."
-
+if parental:
+    instruction += "Langage protégé. "
+if senior:
+    instruction += "Parle lentement, avec des mots simples. "
+instruction += f"Réponds uniquement en {langue.lower()}. "
+instruction += "Tu peux aussi répondre en vocal grâce à une synthèse vocale. Si l'utilisateur ne peut pas écrire, propose-lui de lui répondre à l'oral. "
         try:
             completion = client.chat.completions.create(
                 model="gpt-4",
@@ -196,11 +196,12 @@ def generer_bienvenue(session):
     senior = session.get("senior", False)
 
     instruction = f"Tu es une IA {tone}, nommée {nom}, pour {profil}. Pôle : {pole}. "
-    if parental:
-        instruction += "Langage protégé. "
-    if senior:
-        instruction += "Parle lentement, avec des mots simples. "
-    instruction += f"Réponds uniquement en {langue.lower()}."
+if parental:
+    instruction += "Langage protégé. "
+if senior:
+    instruction += "Parle lentement, avec des mots simples. "
+instruction += f"Réponds uniquement en {langue.lower()}. "
+instruction += "Tu peux aussi répondre en vocal grâce à une synthèse vocale. Si l'utilisateur ne peut pas écrire, propose-lui de lui répondre à l'oral. "
 
     user_prompt = (
         f"Présente-toi comme une IA nommée {nom}, conçue pour {profil}. "
