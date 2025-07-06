@@ -1,8 +1,7 @@
 from flask import Flask, request, jsonify
 from langdetect import detect
 from openai import OpenAI
-import os
-import requests
+import os, requests
 from gtts import gTTS
 from datetime import datetime
 
@@ -18,7 +17,7 @@ client = OpenAI(api_key=OPENAI_API_KEY)
 user_sessions = {}
 user_chat_ids = set()
 
-# 🌐 Langues, tons, pôles, forfaits
+# 🌍 Langues, tons, pôles, forfaits
 LANGUES = ["Français", "Anglais", "Swahili", "Lingala", "Wolof", "Arabe", "Portugais"]
 TONS = {
     "bienvaillante": "😊 Bienvaillante",
@@ -37,7 +36,7 @@ FORFAITS = {
     "elite": {"label": "🌟 Élite – 10 000 FCFA", "messages": 50, "jours": 30}
 }
 
-# 🔐 Filtrage éthique
+# 🔐 Nkouma : Filtrage éthique
 def nkouma_guard(texte, parental=False):
     interdits = ["viol", "suicide", "pédoporno", "tuer", "arme", "esclavage"]
     if parental:
@@ -50,14 +49,10 @@ def send_audio(chat_id, texte):
     filename = f"audio_{chat_id}.mp3"
     tts.save(filename)
     with open(filename, "rb") as f:
-        requests.post(
-            f"{TELEGRAM_URL}/sendAudio",
-            data={"chat_id": chat_id},
-            files={"audio": f}
-        )
+        requests.post(f"{TELEGRAM_URL}/sendAudio", data={"chat_id": chat_id}, files={"audio": f})
     os.remove(filename)
 
-# ⏰ Route CRON vocale pour Render
+# ⏰ Route CRON vocale
 @app.route("/send-morning", methods=["GET"])
 def send_morning():
     texte = "Bonjour ☀️ ! Voici ton message vocal du matin. Tu es capable, tu es digne, et cette journée est à toi !"
@@ -65,7 +60,7 @@ def send_morning():
         send_audio(chat_id, texte)
     return jsonify({"status": "envoyé à tous"}), 200
 
-# 🤖 Webhook principal
+# 🤖 Webhook Telegram
 @app.route("/webhook", methods=["POST"])
 def webhook():
     data = request.get_json()
@@ -76,7 +71,7 @@ def webhook():
         handle_text(chat_id, texte)
     return jsonify({"ok": True})
 
-# 📩 Traitement messages
+# 📩 Traitement texte
 def handle_text(chat_id, text):
     session = user_sessions.setdefault(chat_id, {})
 
@@ -89,7 +84,7 @@ def handle_text(chat_id, text):
         send_message(chat_id, "✍️ Décris à qui est destinée cette ANI (ex : pour ma grand-mère, mon fils, une maman stressée...)")
 
     elif session.get("étape") == "profil":
-        if nkouma_guard(text):
+        if nkouma_guard(text, parental=session.get("parental", False)):
             session["profil"] = text
             show_pole_menu(chat_id)
         else:
@@ -97,7 +92,7 @@ def handle_text(chat_id, text):
     else:
         send_message(chat_id, "Utilise les boutons ci-dessous pour commencer.")
 
-# 🧠 Générer message généraliste
+# 🧠 Générer message de bienvenue GPT
 def generer_bienvenue(session):
     nom = session.get("nom", "ton ANI")
     langue = session.get("langue", "Français")
@@ -118,7 +113,7 @@ def generer_bienvenue(session):
         model="gpt-4",
         messages=[
             {"role": "system", "content": instruction},
-            {"role": "user", "content": "Génère un message d’accueil simple, bienveillant et encourageant, sans commencer par 'Bonjour'."}
+            {"role": "user", "content": "Génère un message d’accueil chaleureux mais ne commence pas par 'Bonjour'. Sois simple, bienveillant(e) et encourageant(e)."}
         ]
     )
     return completion.choices[0].message.content
@@ -149,7 +144,7 @@ def show_forfaits(chat_id):
     send_message(chat_id, "📦 Voici nos forfaits pour activer ton ANI :")
     send_inline_menu(chat_id, "💰 Choisis ton forfait :", boutons)
 
-# 📤 Envoi messages & menus
+# 📤 Fonctions d’envoi
 def send_message(chat_id, texte):
     requests.post(f"{TELEGRAM_URL}/sendMessage", json={"chat_id": chat_id, "text": texte})
 
@@ -161,7 +156,7 @@ def send_inline_menu(chat_id, texte, boutons):
         "reply_markup": keyboard
     })
 
-# 🔁 Callbacks inline
+# 🔁 Gestion des callbacks inline
 @app.route("/callback", methods=["POST"])
 def callback():
     data = request.get_json()
@@ -172,15 +167,17 @@ def callback():
         session = user_sessions.setdefault(chat_id, {})
 
         if data_cb.startswith("lang:"):
-            session["langue"] = data_cb.split(":")[1]
+            session["langue"] = data_cb.split(":", 1)[1]
+            send_message(chat_id, f"🌐 Langue sélectionnée : {session['langue']}")
             show_tone_menu(chat_id)
 
         elif data_cb.startswith("tone:"):
-            session["tone"] = data_cb.split(":")[1]
+            session["tone"] = data_cb.split(":", 1)[1]
+            send_message(chat_id, f"🎭 Ton sélectionné : {TONS.get(session['tone'], session['tone'])}")
             send_modes(chat_id)
 
         elif data_cb.startswith("mode:"):
-            mode = data_cb.split(":")[1]
+            mode = data_cb.split(":", 1)[1]
             session[mode] = not session.get(mode, False)
             send_modes(chat_id)
 
@@ -189,11 +186,11 @@ def callback():
             send_message(chat_id, "📝 Donne un prénom à ton ANI :")
 
         elif data_cb.startswith("pole:"):
-            session["pole"] = data_cb.split(":")[1]
+            session["pole"] = data_cb.split(":", 1)[1]
             show_forfaits(chat_id)
 
         elif data_cb.startswith("pay:"):
-            session["forfait"] = data_cb.split(":")[1]
+            session["forfait"] = data_cb.split(":", 1)[1]
             if not session.get("ani_crée"):
                 try:
                     msg = generer_bienvenue(session)
@@ -201,15 +198,15 @@ def callback():
                     send_audio(chat_id, msg)
                     session["ani_crée"] = True
                 except Exception as e:
-                    send_message(chat_id, f"❌ Une erreur est survenue : {str(e)}")
+                    send_message(chat_id, f"❌ Erreur : {str(e)}")
             else:
-                send_message(chat_id, "🔄 Ton ANI a déjà été activée.")
+                send_message(chat_id, "🔁 ANI déjà activée.")
 
         user_sessions[chat_id] = session
 
     return jsonify({"ok": True})
 
-# ✅ Test
+# ✅ Test route
 @app.route("/", methods=["GET"])
 def home():
     return "✅ ANI Creator en ligne"
