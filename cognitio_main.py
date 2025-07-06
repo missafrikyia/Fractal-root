@@ -1,8 +1,6 @@
 # ✅ SCRIPT COMPLET – ANI Creator Bot avec Pôles, GPT, Éthique (Nkouma), Profil & Forfaits
 
 from flask import Flask, request
-import telebot
-from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
 import openai
 import json
 import os
