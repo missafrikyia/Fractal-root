@@ -65,15 +65,57 @@ def send_morning():
         send_audio(chat_id, texte)
     return jsonify({"status": "envoyé à tous"}), 200
 
-# 🤖 Accueil Webhook
+# 🤖 Webhook central (message + inline)
 @app.route("/webhook", methods=["POST"])
 def webhook():
     data = request.get_json()
+
+    # 📩 Message texte
     if "message" in data:
         chat_id = data["message"]["chat"]["id"]
         user_chat_ids.add(chat_id)
         texte = data["message"].get("text", "")
         handle_text(chat_id, texte)
+
+    # 🔁 Callback inline
+    elif "callback_query" in data:
+        cb = data["callback_query"]
+        chat_id = cb["message"]["chat"]["id"]
+        data_cb = cb["data"]
+        session = user_sessions.setdefault(chat_id, {})
+
+        if data_cb.startswith("lang:"):
+            session["langue"] = data_cb.split(":")[1]
+            show_tone_menu(chat_id)
+
+        elif data_cb.startswith("tone:"):
+            session["tone"] = data_cb.split(":")[1]
+            send_modes(chat_id)
+
+        elif data_cb.startswith("mode:"):
+            mode = data_cb.split(":")[1]
+            session[mode] = not session.get(mode, False)
+            send_modes(chat_id)
+
+        elif data_cb == "continue":
+            session["étape"] = "nom"
+            send_message(chat_id, "📝 Donne un prénom à ton ANI :")
+
+        elif data_cb.startswith("pole:"):
+            session["pole"] = data_cb.split(":")[1]
+            show_forfaits(chat_id)
+
+        elif data_cb.startswith("pay:"):
+            session["forfait"] = data_cb.split(":")[1]
+            try:
+                msg = generer_bienvenue(session)
+                send_message(chat_id, f"✅ ANI créée avec succès !\n\n{msg}")
+                send_audio(chat_id, msg)
+            except Exception as e:
+                send_message(chat_id, f"❌ Une erreur est survenue : {str(e)}")
+
+        user_sessions[chat_id] = session
+
     return jsonify({"ok": True})
 
 # 📩 Message texte
@@ -97,7 +139,7 @@ def handle_text(chat_id, text):
     else:
         send_message(chat_id, "Utilise les boutons ci-dessous pour commencer.")
 
-# 🧠 GPT : Générer le message de bienvenue
+# 🧠 GPT : Message de bienvenue
 def generer_bienvenue(session):
     nom = session.get("nom", "ton ANI")
     langue = session.get("langue", "Français")
@@ -161,51 +203,7 @@ def send_inline_menu(chat_id, texte, boutons):
         "reply_markup": keyboard
     })
 
-# 🔁 Callbacks inline
-@app.route("/callback", methods=["POST"])
-def callback():
-    data = request.get_json()
-    if "callback_query" in data:
-        cb = data["callback_query"]
-        chat_id = cb["message"]["chat"]["id"]
-        data_cb = cb["data"]
-        session = user_sessions.setdefault(chat_id, {})
-
-        if data_cb.startswith("lang:"):
-            session["langue"] = data_cb.split(":")[1]
-            show_tone_menu(chat_id)
-
-        elif data_cb.startswith("tone:"):
-            session["tone"] = data_cb.split(":")[1]
-            send_modes(chat_id)
-
-        elif data_cb.startswith("mode:"):
-            mode = data_cb.split(":")[1]
-            session[mode] = not session.get(mode, False)
-            send_modes(chat_id)
-
-        elif data_cb == "continue":
-            session["étape"] = "nom"
-            send_message(chat_id, "📝 Donne un prénom à ton ANI :")
-
-        elif data_cb.startswith("pole:"):
-            session["pole"] = data_cb.split(":")[1]
-            show_forfaits(chat_id)
-
-        elif data_cb.startswith("pay:"):
-            session["forfait"] = data_cb.split(":")[1]
-            try:
-                msg = generer_bienvenue(session)
-                send_message(chat_id, f"✅ ANI créée avec succès !\n\n{msg}")
-                send_audio(chat_id, msg)
-            except Exception as e:
-                send_message(chat_id, f"❌ Une erreur est survenue : {str(e)}")
-
-        user_sessions[chat_id] = session
-
-    return jsonify({"ok": True})
-
-# ✅ Test route
+# ✅ Ping route
 @app.route("/", methods=["GET"])
 def home():
-    return "✅ ANI Creator est en ligne"
+    return "✅ Cognitio ANI est en ligne"
