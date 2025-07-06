@@ -5,3 +5,4 @@ gtts
 python-dotenv
 gunicorn
 langdetect
+telebot
