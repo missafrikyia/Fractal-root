@@ -157,30 +157,31 @@ def handle_text(chat_id, text):
         nom = session.get("nom", "ton ANI")
         langue = session.get("langue", "Français")
         tone = session.get("tone", "bienvaillante")
-        profil = session.get("profil", "une personne")
-        pole = session.get("pole", "général")
-        parental = session.get("parental", False)
-        senior = session.get("senior", False)
+        
+    profil = session.get("profil", "une personne")
+pole = session.get("pole", "général")
+parental = session.get("parental", False)
+senior = session.get("senior", False)
 
-        instruction = f"Tu es une IA {tone}, nommée {nom}, pour {profil}. Pôle : {pole}. "
+instruction = f"Tu es une IA {tone}, nommée {nom}, pour {profil}. Pôle : {pole}. "
 if parental:
     instruction += "Langage protégé. "
 if senior:
     instruction += "Parle lentement, avec des mots simples. "
 instruction += f"Réponds uniquement en {langue.lower()}. "
 instruction += "Tu peux aussi répondre en vocal grâce à une synthèse vocale. Si l'utilisateur ne peut pas écrire, propose-lui de lui répondre à l'oral. "
-        try:
-            completion = client.chat.completions.create(
-                model="gpt-4",
-                messages=[
-                    {"role": "system", "content": instruction},
-                    {"role": "user", "content": text}
-                ]
-            )
-            reponse = completion.choices[0].message.content
-            send_message(chat_id, reponse)
-        except Exception as e:
-            send_message(chat_id, f"❌ Erreur GPT : {str(e)}")
+
+try:
+    completion = client.chat.completions.create(
+        model="gpt-4",
+        messages=[
+            {"role": "system", "content": instruction},
+            {"role": "user", "content": prompt}
+        ]
+    )
+    reponse = completion.choices[0].message.content.strip()
+except Exception as e:
+    reponse = "❌ Une erreur est survenue. Merci de réessayer."
 
     else:
         send_message(chat_id, "Utilise les boutons ci-dessous pour commencer.")
