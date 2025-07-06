@@ -65,107 +65,18 @@ def send_morning():
         send_audio(chat_id, texte)
     return jsonify({"status": "envoyé à tous"}), 200
 
-# 🤖 Accueil Webhook
+# 🤖 Webhook unifié (texte ou callback)
 @app.route("/webhook", methods=["POST"])
 def webhook():
     data = request.get_json()
+
     if "message" in data:
         chat_id = data["message"]["chat"]["id"]
         user_chat_ids.add(chat_id)
         texte = data["message"].get("text", "")
         handle_text(chat_id, texte)
-    return jsonify({"ok": True})
 
-# 📩 Message texte
-def handle_text(chat_id, text):
-    session = user_sessions.setdefault(chat_id, {})
-
-    if text.lower().startswith("start"):
-        show_language_menu(chat_id)
-
-    elif session.get("étape") == "nom":
-        session["nom"] = text
-        session["étape"] = "profil"
-        send_message(chat_id, "✍️ Décris à qui est destinée cette ANI (ex : pour ma grand-mère, mon fils, une maman stressée...)")
-
-    elif session.get("étape") == "profil":
-        if nkouma_guard(text):
-            session["profil"] = text
-            show_pole_menu(chat_id)
-        else:
-            send_message(chat_id, "❌ Contenu inapproprié.")
-    else:
-        send_message(chat_id, "Utilise les boutons ci-dessous pour commencer.")
-
-# 🧠 Générer message de bienvenue avec GPT-4
-def generer_bienvenue(session):
-    nom = session.get("nom", "ton ANI")
-    langue = session.get("langue", "Français")
-    tone = session.get("tone", "bienvaillante")
-    profil = session.get("profil", "une personne")
-    pole = session.get("pole", "général")
-    parental = session.get("parental", False)
-    senior = session.get("senior", False)
-
-    instruction = f"Tu es une IA {tone}, nommée {nom}, pour {profil}. Pôle : {pole}. "
-    if parental:
-        instruction += "Langage protégé. "
-    if senior:
-        instruction += "Parle lentement, avec des mots simples. "
-    instruction += f"Réponds uniquement en {langue.lower()}."
-
-    completion = client.chat.completions.create(
-        model="gpt-4",
-        messages=[
-            {"role": "system", "content": instruction},
-            {"role": "user", "content": "Génère un message d’accueil chaleureux mais ne commence pas par 'Bonjour'. Sois simple, bienveillant(e) et encourageant(e)."}
-        ]
-    )
-    return completion.choices[0].message.content
-
-# 📍 Menus inline
-def show_language_menu(chat_id):
-    boutons = [{"text": lang, "callback_data": f"lang:{lang}"} for lang in LANGUES]
-    send_inline_menu(chat_id, "🌍 Choisis ta langue :", boutons)
-
-def show_tone_menu(chat_id):
-    boutons = [{"text": v, "callback_data": f"tone:{k}"} for k, v in TONS.items()]
-    send_inline_menu(chat_id, "🎭 Choisis le ton de ton ANI :", boutons)
-
-def send_modes(chat_id):
-    boutons = [
-        {"text": "👶 Mode parental", "callback_data": "mode:parental"},
-        {"text": "🧓 Mode senior", "callback_data": "mode:senior"},
-        {"text": "⏭️ Continuer", "callback_data": "continue"}
-    ]
-    send_inline_menu(chat_id, "🔧 Activer un mode spécial ?", boutons)
-
-def show_pole_menu(chat_id):
-    boutons = [{"text": pole, "callback_data": f"pole:{pole}"} for pole in POLES]
-    send_inline_menu(chat_id, "📍 Choisis un pôle :", boutons)
-
-def show_forfaits(chat_id):
-    boutons = [{"text": f["label"], "callback_data": f"pay:{key}"} for key, f in FORFAITS.items()]
-    send_message(chat_id, "📦 Voici nos forfaits pour activer ton ANI :")
-    send_inline_menu(chat_id, "💰 Choisis ton forfait :", boutons)
-
-# 📤 Envoi messages & menus
-def send_message(chat_id, texte):
-    requests.post(f"{TELEGRAM_URL}/sendMessage", json={"chat_id": chat_id, "text": texte})
-
-def send_inline_menu(chat_id, texte, boutons):
-    keyboard = {"inline_keyboard": [[{"text": b["text"], "callback_data": b["callback_data"]}] for b in boutons]}
-    requests.post(f"{TELEGRAM_URL}/sendMessage", json={
-        "chat_id": chat_id,
-        "text": texte,
-        "reply_markup": keyboard
-    })
-
-# 🔁 Callbacks inline
-@app.route("/callback", methods=["POST"])
-def callback():
-    data = request.get_json()
-    if "callback_query" in data:
+    elif "callback_query" in data:
         cb = data["callback_query"]
         chat_id = cb["message"]["chat"]["id"]
         data_cb = cb["data"]
@@ -185,7 +96,7 @@ def callback():
             send_modes(chat_id)
 
         elif data_cb == "continue":
-            session["étape"] = "nom"
+            session["\u00e9tape"] = "nom"
             send_message(chat_id, "📝 Donne un prénom à ton ANI :")
 
         elif data_cb.startswith("pole:"):
@@ -205,7 +116,96 @@ def callback():
 
     return jsonify({"ok": True})
 
-# ✅ Test de vie
+# 📩 Message texte
+
+def handle_text(chat_id, text):
+    session = user_sessions.setdefault(chat_id, {})
+
+    if text.lower().startswith("start"):
+        show_language_menu(chat_id)
+
+    elif session.get("\u00e9tape") == "nom":
+        session["nom"] = text
+        session["\u00e9tape"] = "profil"
+        send_message(chat_id, "✍️ Décris à qui est destinée cette ANI (ex : pour ma grand-mère, mon fils, une maman stressée...)")
+
+    elif session.get("\u00e9tape") == "profil":
+        if nkouma_guard(text):
+            session["profil"] = text
+            show_pole_menu(chat_id)
+        else:
+            send_message(chat_id, "❌ Contenu inapproprié.")
+    else:
+        send_message(chat_id, "Utilise les boutons ci-dessous pour commencer.")
+
+# 🧠 Génération message de bienvenue
+
+def generer_bienvenue(session):
+    nom = session.get("nom", "ton ANI")
+    langue = session.get("langue", "Français")
+    tone = session.get("tone", "bienvaillante")
+    profil = session.get("profil", "une personne")
+    pole = session.get("pole", "général")
+    parental = session.get("parental", False)
+    senior = session.get("senior", False)
+
+    instruction = f"Tu es une IA {tone}, nommée {nom}, pour {profil}. Pôle : {pole}. "
+    if parental:
+        instruction += "Langage protégé. "
+    if senior:
+        instruction += "Parle lentement, avec des mots simples. "
+    instruction += f"Réponds uniquement en {langue.lower()}."
+
+    response = client.chat.completions.create(
+        model="gpt-4",
+        messages=[
+            {"role": "system", "content": instruction},
+            {"role": "user", "content": "Génère un message d’accueil chaleureux mais ne commence pas par 'Bonjour'. Sois simple, bienveillant(e) et encourageant(e)."}
+        ]
+    )
+    return response.choices[0].message.content
+
+# 📍 Menus inline
+
+def show_language_menu(chat_id):
+    boutons = [{"text": lang, "callback_data": f"lang:{lang}"} for lang in LANGUES]
+    send_inline_menu(chat_id, "🌍 Choisis ta langue :", boutons)
+
+def show_tone_menu(chat_id):
+    boutons = [{"text": v, "callback_data": f"tone:{k}"} for k, v in TONS.items()]
+    send_inline_menu(chat_id, "🌝 Choisis le ton de ton ANI :", boutons)
+
+def send_modes(chat_id):
+    boutons = [
+        {"text": "👶 Mode parental", "callback_data": "mode:parental"},
+        {"text": "👳 Mode senior", "callback_data": "mode:senior"},
+        {"text": "⏭️ Continuer", "callback_data": "continue"}
+    ]
+    send_inline_menu(chat_id, "🔧 Activer un mode spécial ?", boutons)
+
+def show_pole_menu(chat_id):
+    boutons = [{"text": pole, "callback_data": f"pole:{pole}"} for pole in POLES]
+    send_inline_menu(chat_id, "📍 Choisis un pôle :", boutons)
+
+def show_forfaits(chat_id):
+    boutons = [{"text": f["label"], "callback_data": f"pay:{key}"} for key, f in FORFAITS.items()]
+    send_message(chat_id, "📦 Voici nos forfaits pour activer ton ANI :")
+    send_inline_menu(chat_id, "💰 Choisis ton forfait :", boutons)
+
+# 📤 Envoi messages & menus
+
+def send_message(chat_id, texte):
+    requests.post(f"{TELEGRAM_URL}/sendMessage", json={"chat_id": chat_id, "text": texte})
+
+def send_inline_menu(chat_id, texte, boutons):
+    keyboard = {"inline_keyboard": [[{"text": b["text"], "callback_data": b["callback_data"]}] for b in boutons]}
+    requests.post(f"{TELEGRAM_URL}/sendMessage", json={
+        "chat_id": chat_id,
+        "text": texte,
+        "reply_markup": keyboard
+    })
+
+# ✅ Home
 @app.route("/", methods=["GET"])
 def home():
     return "✅ ANI Creator en ligne"
