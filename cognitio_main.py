@@ -10,7 +10,6 @@ app = Flask(__name__)
 # 🔐 Clés API
 BOT_TOKEN = "TON_TELEGRAM_BOT_TOKEN"
 OPENAI_API_KEY = "TON_OPENAI_KEY"
-bot = telebot.TeleBot(BOT_TOKEN)
 openai.api_key = OPENAI_API_KEY
 
 user_sessions = {}
