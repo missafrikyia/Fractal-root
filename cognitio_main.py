@@ -92,7 +92,7 @@ def send_morning():
     return jsonify({"status": "envoyé à tous"}), 200
 
 # 🤖 Route Webhook Telegram
-@app.route(f"/{BOT_TOKEN}", methods=["POST"])
+@app.route("/webhook", methods=["POST"])
 def webhook():
     data = request.get_json()
     if "message" in data:
@@ -179,7 +179,7 @@ def send_inline_menu(chat_id, texte, boutons):
     })
 
 # 🎯 Inline callback
-@app.route(f"/{BOT_TOKEN}/callback", methods=["POST"])
+@app.route("/callback", methods=["POST"])
 def callback():
     data = request.get_json()
     if "callback_query" in data:
