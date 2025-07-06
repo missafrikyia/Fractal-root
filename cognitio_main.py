@@ -79,7 +79,7 @@ def webhook():
 
     return jsonify({"ok": True})
 
-# 📩 Traitement texte simple
+# 📩 Traitement texte
 def handle_text(chat_id, text):
     session = user_sessions.setdefault(chat_id, {})
     cleaned = text.lower().strip()
@@ -98,6 +98,10 @@ def handle_text(chat_id, text):
             show_pole_menu(chat_id)
         else:
             send_message(chat_id, "❌ Contenu inapproprié.")
+
+    elif session.get("étape") == "conversation":
+        send_message(chat_id, "💬 [ANI] Merci pour ton message. Tu peux discuter avec moi maintenant.")
+
     else:
         send_message(chat_id, "Utilise les boutons ci-dessous pour commencer.")
 
@@ -206,6 +210,7 @@ def handle_callback(data):
                 send_message(chat_id, f"✅ ANI créée avec succès !\n\n{msg}")
                 send_audio(chat_id, msg)
                 session["ani_crée"] = True
+                session["étape"] = "conversation"  # 🟢 AJOUT ICI
             except Exception as e:
                 send_message(chat_id, f"❌ Erreur : {str(e)}")
         else:
