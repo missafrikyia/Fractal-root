@@ -241,18 +241,18 @@ def show_pole_menu(chat_id):
 
 def show_forfaits(chat_id):
     session = user_sessions.setdefault(chat_id, {})
-
     send_message(chat_id, "📦 Voici nos formules MyAiFab :")
 
     for key, f in FORFAITS.items():
         texte = (
             f"{f['label']}\n\n"
             f"{f['description']}\n\n"
-            "💳 Paiement CB en ligne via notre boutique sécurisée :\n"
-            "👉 https://myaishop.com/paiement\n"  # Remplace par ton vrai lien
+            "💳 *Paiement CB* en ligne via notre boutique sécurisée :\n"
+            "👉 [Clique ici](https://myaishop.com/paiement)\n\n"
+            "✅ Une fois le paiement effectué, clique sur le bouton ci-dessous 👇"
         )
         bouton = [{"text": "📌 J’ai payé", "callback_data": f"pay:{key}"}]
-        send_inline_menu(chat_id, texte, bouton)
+        send_inline_menu(chat_id, texte, bouton, parse_mode="Markdown")
         
 
     # Envoi du message explicatif avec parse_mode Markdown
