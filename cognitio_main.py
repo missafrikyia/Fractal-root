@@ -29,7 +29,7 @@ TONS = {
     "motivation": "🔥 Motivation"
 }
 POLES = [
-    "🧠 Éducation", "💼 Business", "🧘 Bien-être", "❤️ Maternité", "💼 SeniorCare",
+    "🧠 Éducation", "💼 Business", "🧘 Bien-être", "❤️ Maternité", "👵 SeniorCare",
     "🧒 Enfant", "🛡️ Éthique", "📖 Foi", "❤️ Amour", "💊 Santé"
 ]
 FORFAITS = {
@@ -43,7 +43,7 @@ FORFAITS = {
 def nkouma_guard(texte, parental=False):
     interdits = ["viol", "suicide", "pédoporno", "tuer", "arme", "esclavage"]
     if parental:
-        interdits += ["sexe", "nudite", "mort", "insulte", "démon"]
+        interdits += ["sexe", "nudité", "mort", "insulte", "démon"]
     return not any(m in texte.lower() for m in interdits)
 
 # 🔊 Envoi audio
@@ -63,20 +63,17 @@ def send_morning():
         send_audio(chat_id, texte)
     return jsonify({"status": "envoyé à tous"}), 200
 
-# 🤖 Webhook Telegram (gère aussi les boutons inline)
+# 🤖 Webhook Telegram
 @app.route("/webhook", methods=["POST"])
 def webhook():
     data = request.get_json()
-
     if "callback_query" in data:
         return handle_callback(data)
-
     if "message" in data:
         chat_id = data["message"]["chat"]["id"]
         user_chat_ids.add(chat_id)
         texte = data["message"].get("text", "")
         handle_text(chat_id, texte)
-
     return jsonify({"ok": True})
 
 # 📩 Traitement texte
@@ -87,27 +84,36 @@ def handle_text(chat_id, text):
     if cleaned in ["start", "/start"]:
         show_language_menu(chat_id)
 
-    elif session.get("\u00e9tape") == "nom":
+    elif session.get("étape") == "nom":
         session["nom"] = text
-        session["\u00e9tape"] = "profil"
+        session["étape"] = "profil"
         send_message(chat_id, "✍️ Décris à qui est destinée cette ANI (ex : pour ma grand-mère, mon fils, une maman stressée...)")
 
-    elif session.get("\u00e9tape") == "profil":
+    elif session.get("étape") == "profil":
         if nkouma_guard(text, parental=session.get("parental", False)):
             session["profil"] = text
             show_pole_menu(chat_id)
         else:
             send_message(chat_id, "❌ Contenu inapproprié.")
 
-    elif session.get("\u00e9tape") == "conversation" and session.get("ani_crée"):
+    elif session.get("étape") == "conversation":
+        # 🎯 Génère réponse GPT selon le contexte
+        nom = session.get("nom", "ton ANI")
+        langue = session.get("langue", "Français")
+        tone = session.get("tone", "bienvaillante")
+        profil = session.get("profil", "une personne")
+        pole = session.get("pole", "général")
+        parental = session.get("parental", False)
+        senior = session.get("senior", False)
 
-        if session.get("messages_restants", 0) <= 0:
-            send_message(chat_id, "⚠️ Ton forfait est épuisé. Merci de choisir un nouveau forfait pour continuer.")
-            show_forfaits(chat_id)
-            return
+        instruction = f"Tu es une IA {tone}, nommée {nom}, pour {profil}. Pôle : {pole}. "
+        if parental:
+            instruction += "Langage protégé. "
+        if senior:
+            instruction += "Parle lentement, avec des mots simples. "
+        instruction += f"Réponds uniquement en {langue.lower()}."
 
         try:
-            instruction = generer_instruction(session)
             completion = client.chat.completions.create(
                 model="gpt-4",
                 messages=[
@@ -117,31 +123,14 @@ def handle_text(chat_id, text):
             )
             reponse = completion.choices[0].message.content
             send_message(chat_id, reponse)
-
-            session["messages_restants"] -= 1
-            reste = session["messages_restants"]
-            send_message(chat_id, f"💬 Messages restants : {reste}")
-
-            if reste == 1:
-                send_message(chat_id, "⚠️ Il ne te reste qu’1 seul message. Pense à recharger ton forfait bientôt.")
-
-            if session.get("audio_on"):
-                send_audio(chat_id, reponse)
-
-            bouton = [{
-                "text": "🎹 Désactiver" if session.get("audio_on") else "🎹 Activer",
-                "callback_data": "audio:toggle"
-            }]
-            send_inline_menu(chat_id, "🔊 Audio automatique :", bouton)
-
         except Exception as e:
             send_message(chat_id, f"❌ Erreur GPT : {str(e)}")
 
     else:
         send_message(chat_id, "Utilise les boutons ci-dessous pour commencer.")
 
-# 🧠 Génération d’instruction GPT
-def generer_instruction(session):
+# 🧠 Générer message de bienvenue
+def generer_bienvenue(session):
     nom = session.get("nom", "ton ANI")
     langue = session.get("langue", "Français")
     tone = session.get("tone", "bienvaillante")
@@ -156,7 +145,20 @@ def generer_instruction(session):
     if senior:
         instruction += "Parle lentement, avec des mots simples. "
     instruction += f"Réponds uniquement en {langue.lower()}."
-    return instruction
+
+    user_prompt = (
+        f"Présente-toi comme une IA nommée {nom}, conçue pour {profil}. "
+        f"Sois chaleureuse, adapte ton ton ({tone}). Termine par : 'Que puis-je faire pour toi aujourd’hui ?'"
+    )
+
+    completion = client.chat.completions.create(
+        model="gpt-4",
+        messages=[
+            {"role": "system", "content": instruction},
+            {"role": "user", "content": user_prompt}
+        ]
+    )
+    return completion.choices[0].message.content
 
 # 📍 Menus inline
 def show_language_menu(chat_id):
@@ -168,9 +170,10 @@ def show_tone_menu(chat_id):
     send_inline_menu(chat_id, "🎭 Choisis le ton de ton ANI :", boutons)
 
 def send_modes(chat_id):
+    session = user_sessions.get(chat_id, {})
     boutons = [
-        {"text": "👶 Mode parental", "callback_data": "mode:parental"},
-        {"text": "🧃 Mode senior", "callback_data": "mode:senior"},
+        {"text": f"👶 Mode parental {'✅' if session.get('parental') else ''}", "callback_data": "mode:parental"},
+        {"text": f"🧓 Mode senior {'✅' if session.get('senior') else ''}", "callback_data": "mode:senior"},
         {"text": "⏭️ Continuer", "callback_data": "continue"}
     ]
     send_inline_menu(chat_id, "🔧 Activer un mode spécial ?", boutons)
@@ -182,13 +185,6 @@ def show_pole_menu(chat_id):
 def show_forfaits(chat_id):
     boutons = [{"text": f["label"], "callback_data": f"pay:{key}"} for key, f in FORFAITS.items()]
     send_message(chat_id, "📦 Voici nos forfaits pour activer ton ANI :")
-    send_message(chat_id, "Chaque forfait inclut un nombre de messages utilisables avec l’IA selon la durée :")
-    send_message(chat_id,
-        "🔹 Starter – 1000 FCFA : 5 messages sur 3 jours\n"
-        "🔸 Standard – 2500 FCFA : 15 messages sur 7 jours\n"
-        "🔶 Premium – 5000 FCFA : 30 messages sur 15 jours\n"
-        "🌟 Élite – 10 000 FCFA : 50 messages sur 30 jours"
-    )
     send_inline_menu(chat_id, "💰 Choisis ton forfait :", boutons)
 
 # 📤 Fonctions d’envoi
@@ -203,57 +199,56 @@ def send_inline_menu(chat_id, texte, boutons):
         "reply_markup": keyboard
     })
 
-# ✅ Page test
-@app.route("/", methods=["GET"])
-def home():
-    return "✅ ANI Creator en ligne"
-
-# 🔄 Gestion des callback inline
+# 🔁 Callback centralisé (inchangé)
 def handle_callback(data):
-    query = data["callback_query"]
-    chat_id = query["message"]["chat"]["id"]
-    data_cb = query["data"]
+    cb = data["callback_query"]
+    chat_id = cb["message"]["chat"]["id"]
+    data_cb = cb["data"]
     session = user_sessions.setdefault(chat_id, {})
 
     if data_cb.startswith("lang:"):
         session["langue"] = data_cb.split(":", 1)[1]
-        session["\u00e9tape"] = "nom"
-        send_message(chat_id, "🧠 Quel nom veux-tu donner à ton ANI ?")
+        send_message(chat_id, f"🌐 Langue sélectionnée : {session['langue']}")
+        show_tone_menu(chat_id)
 
     elif data_cb.startswith("tone:"):
         session["tone"] = data_cb.split(":", 1)[1]
+        send_message(chat_id, f"🎭 Ton sélectionné : {TONS.get(session['tone'], session['tone'])}")
         send_modes(chat_id)
 
     elif data_cb.startswith("mode:"):
         mode = data_cb.split(":", 1)[1]
-        if mode == "parental":
-            session["parental"] = True
-        elif mode == "senior":
-            session["senior"] = True
-        send_message(chat_id, f"✅ Mode {mode} activé.")
+        session[mode] = not session.get(mode, False)
+        etat = "activé ✅" if session[mode] else "désactivé ❌"
+        send_message(chat_id, f"🔧 Mode {mode} : {etat}")
         send_modes(chat_id)
 
     elif data_cb == "continue":
-        send_message(chat_id, "✍️ Quel nom veux-tu donner à ton ANI ?")
-        session["\u00e9tape"] = "nom"
+        session["étape"] = "nom"
+        send_message(chat_id, "📝 Donne un prénom à ton ANI :")
 
     elif data_cb.startswith("pole:"):
         session["pole"] = data_cb.split(":", 1)[1]
-        session["ani_crée"] = True
-        send_message(chat_id, f"✨ Ton ANI est prête !")
         show_forfaits(chat_id)
 
     elif data_cb.startswith("pay:"):
-        forfait = data_cb.split(":", 1)[1]
-        session["forfait"] = forfait
-        session["messages_restants"] = FORFAITS[forfait]["messages"]
-        session["\u00e9tape"] = "conversation"
-        session["audio_on"] = True
-        send_message(chat_id, f"✅ Forfait {FORFAITS[forfait]['label']} activé.")
-        send_message(chat_id, "Tu peux maintenant parler avec ton ANI. Que puis-je faire pour toi aujourd’hui ?")
+        session["forfait"] = data_cb.split(":", 1)[1]
+        if not session.get("ani_crée"):
+            try:
+                msg = generer_bienvenue(session)
+                send_message(chat_id, f"✅ ANI créée avec succès !\n\n{msg}")
+                send_audio(chat_id, msg)
+                session["ani_crée"] = True
+                session["étape"] = "conversation"
+            except Exception as e:
+                send_message(chat_id, f"❌ Erreur : {str(e)}")
+        else:
+            send_message(chat_id, "🔁 ANI déjà activée.")
 
-    elif data_cb == "audio:toggle":
-        session["audio_on"] = not session.get("audio_on", False)
-        status = "activé" if session["audio_on"] else "désactivé"
-        send_message(chat_id, f"🎹 Mode audio {status}.")
+    user_sessions[chat_id] = session
+    return jsonify({"ok": True})
 
+# ✅ Route test
+@app.route("/", methods=["GET"])
+def home():
+    return "✅ ANI Creator en ligne"
