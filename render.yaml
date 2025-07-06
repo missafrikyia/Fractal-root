@@ -1,11 +1,11 @@
 services:
   - type: web
-    name: cognitio-root
+    name: ani-creator-bot
     env: python
-    buildCommand: ./build.sh
-    startCommand: python app.py
+    buildCommand: ""
+    startCommand: python cognitio_main.py
     envVars:
       - key: TELEGRAM_BOT_TOKEN
-        sync: false
+        value: TON_TOKEN_TELEGRAM
       - key: OPENAI_API_KEY
-        sync: false
+        value: TA_CLE_OPENAI
