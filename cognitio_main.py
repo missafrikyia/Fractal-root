@@ -9,7 +9,7 @@ from datetime import datetime
 app = Flask(__name__)
 
 # 🔐 Clés API
-BOT_TOKEN = "TON_TELEGRAM_BOT_TOKEN"
+BOT_TOKEN = "TELEGRAM_BOT_TOKEN"
 OPENAI_API_KEY = "TON_OPENAI_KEY"
 openai.api_key = OPENAI_API_KEY
 TELEGRAM_URL = f"https://api.telegram.org/bot{BOT_TOKEN}"
