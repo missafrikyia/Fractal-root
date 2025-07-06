@@ -36,7 +36,7 @@ FORFAITS = {
     "elite": {"label": "🌟 Élite – 10 000 FCFA", "messages": 50, "jours": 30}
 }
 
-# 🔐 Nkouma : Filtrage éthique
+# 🔐 Filtrage éthique
 def nkouma_guard(texte, parental=False):
     interdits = ["viol", "suicide", "pédoporno", "tuer", "arme", "esclavage"]
     if parental:
@@ -52,7 +52,7 @@ def send_audio(chat_id, texte):
         requests.post(f"{TELEGRAM_URL}/sendAudio", data={"chat_id": chat_id}, files={"audio": f})
     os.remove(filename)
 
-# ⏰ Route CRON vocale
+# ⏰ Route CRON matinale
 @app.route("/send-morning", methods=["GET"])
 def send_morning():
     texte = "Bonjour ☀️ ! Voici ton message vocal du matin. Tu es capable, tu es digne, et cette journée est à toi !"
@@ -60,10 +60,12 @@ def send_morning():
         send_audio(chat_id, texte)
     return jsonify({"status": "envoyé à tous"}), 200
 
-# 🤖 Webhook Telegram
+# 🤖 Webhook pour texte
 @app.route("/webhook", methods=["POST"])
 def webhook():
     data = request.get_json()
+    print("=== Message reçu ===")
+    print(data)
     if "message" in data:
         chat_id = data["message"]["chat"]["id"]
         user_chat_ids.add(chat_id)
@@ -71,7 +73,7 @@ def webhook():
         handle_text(chat_id, texte)
     return jsonify({"ok": True})
 
-# 📩 Traitement texte
+# 📩 Traitement du texte utilisateur
 def handle_text(chat_id, text):
     session = user_sessions.setdefault(chat_id, {})
 
@@ -92,7 +94,7 @@ def handle_text(chat_id, text):
     else:
         send_message(chat_id, "Utilise les boutons ci-dessous pour commencer.")
 
-# 🧠 Générer message de bienvenue GPT
+# 🧠 Message d’accueil GPT
 def generer_bienvenue(session):
     nom = session.get("nom", "ton ANI")
     langue = session.get("langue", "Français")
@@ -144,7 +146,7 @@ def show_forfaits(chat_id):
     send_message(chat_id, "📦 Voici nos forfaits pour activer ton ANI :")
     send_inline_menu(chat_id, "💰 Choisis ton forfait :", boutons)
 
-# 📤 Fonctions d’envoi
+# 📤 Envois
 def send_message(chat_id, texte):
     requests.post(f"{TELEGRAM_URL}/sendMessage", json={"chat_id": chat_id, "text": texte})
 
@@ -156,15 +158,20 @@ def send_inline_menu(chat_id, texte, boutons):
         "reply_markup": keyboard
     })
 
-# 🔁 Gestion des callbacks inline
+# 🔁 Callbacks inline
 @app.route("/callback", methods=["POST"])
 def callback():
     data = request.get_json()
+    print("=== Callback reçu ===")
+    print(data)
     if "callback_query" in data:
         cb = data["callback_query"]
         chat_id = cb["message"]["chat"]["id"]
         data_cb = cb["data"]
         session = user_sessions.setdefault(chat_id, {})
+
+        # Réponse obligatoire à Telegram
+        requests.post(f"{TELEGRAM_URL}/answerCallbackQuery", json={"callback_query_id": cb["id"]})
 
         if data_cb.startswith("lang:"):
             session["langue"] = data_cb.split(":", 1)[1]
@@ -178,8 +185,7 @@ def callback():
 
         elif data_cb.startswith("mode:"):
             mode = data_cb.split(":", 1)[1]
-            session[mode] = not session.get(mode, False)
-            send_modes(chat_id)
+            session[mode] = True  # Active, pas toggle
 
         elif data_cb == "continue":
             session["étape"] = "nom"
@@ -206,7 +212,7 @@ def callback():
 
     return jsonify({"ok": True})
 
-# ✅ Test route
+# ✅ Test de vie
 @app.route("/", methods=["GET"])
 def home():
     return "✅ ANI Creator en ligne"
