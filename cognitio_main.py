@@ -33,10 +33,66 @@ POLES = [
     "🧒 Enfant", "🛡️ Éthique", "📖 Foi", "❤️ Amour", "💊 Santé"
 ]
 FORFAITS = {
-    "starter": {"label": "🔹 Starter – 1000 FCFA", "messages": 5, "jours": 3},
-    "standard": {"label": "🔸 Standard – 2500 FCFA", "messages": 15, "jours": 7},
-    "premium": {"label": "🔶 Premium – 5000 FCFA", "messages": 30, "jours": 15},
-    "elite": {"label": "🌟 Élite – 10 000 FCFA", "messages": 50, "jours": 30}
+    "start": {
+        "label": "💎 MyAiFab START – 9 €/semaine",
+        "prix": "9",
+        "devise": "€",
+        "duree": 7,
+        "messages": 20,
+        "description": (
+            "1 IA activée (nom + spécialité)\n"
+            "⏳ 7 jours d’accès\n"
+            "💬 20 messages (vocaux ou écrits)\n"
+            "📍 1 pôle unique\n"
+            "⚡ Réponse en <30 min\n"
+            "📲 Support WhatsApp\n"
+            "⏫ Upgrade possible"
+        )
+    },
+    "pro": {
+        "label": "💎 MyAiFab PRO – 29 €/mois",
+        "prix": "29",
+        "devise": "€",
+        "duree": 30,
+        "messages": 60,
+        "description": (
+            "IA personnalisée (langue, style, ton)\n"
+            "🗓️ 30 jours d’accès\n"
+            "💬 60 messages\n"
+            "📍 2 pôles\n"
+            "🧾 Résumé PDF mensuel\n"
+            "🛠️ Intégration outils/scripts"
+        )
+    },
+    "proplus": {
+        "label": "⚡ MyAiFab PRO+ – 59 €/mois",
+        "prix": "59",
+        "devise": "€",
+        "duree": 30,
+        "messages": 150,
+        "description": (
+            "Jusqu’à 3 IA connectées\n"
+            "💬 150 messages/mois\n"
+            "⚡ Réponses express (<10 min de 9h à 18h)\n"
+            "📍 4 pôles\n"
+            "🔊 IA vocale + audio matin automatique\n"
+            "👥 Connexion IA famille/équipe"
+        )
+    },
+    "illimite": {
+        "label": "🚀 MyAiFab ILLIMITÉ – 99 €/mois",
+        "prix": "99",
+        "devise": "€",
+        "duree": 30,
+        "messages": 9999,
+        "description": (
+            "🔓 Illimité (usage raisonnable)\n"
+            "🤖 Jusqu’à 5 IA connectées\n"
+            "🎙️ IA vocale, visuelle, émotionnelle, business\n"
+            "🧠 Génération pitchs, visuels, business plans\n"
+            "🔐 Accès API GPT / plateforme IA avancée"
+        )
+    }
 }
 
 # 🔐 Nkouma : Filtrage éthique
@@ -183,22 +239,20 @@ def show_pole_menu(chat_id):
     send_inline_menu(chat_id, "📍 Choisis un pôle :", boutons)
 
 def show_forfaits(chat_id):
-    explication = (
-        "📦 *Voici nos forfaits disponibles pour activer ton ANI :*\n\n"
-        "🔹 *Starter – 1000 FCFA*\n"
-        "• 5 messages\n"
-        "• Valable 3 jours\n\n"
-        "🔸 *Standard – 2500 FCFA*\n"
-        "• 15 messages\n"
-        "• Valable 7 jours\n\n"
-        "🔶 *Premium – 5000 FCFA*\n"
-        "• 30 messages\n"
-        "• Valable 15 jours\n\n"
-        "🌟 *Élite – 10 000 FCFA*\n"
-        "• 50 messages\n"
-        "• Valable 30 jours\n\n"
-        "_Chaque message correspond à une interaction avec ton IA. Une fois le forfait épuisé ou expiré, tu pourras le recharger._"
-    )
+    session = user_sessions.setdefault(chat_id, {})
+
+    send_message(chat_id, "📦 Voici nos formules MyAiFab :")
+
+    for key, f in FORFAITS.items():
+        texte = (
+            f"{f['label']}\n\n"
+            f"{f['description']}\n\n"
+            "💳 Paiement CB en ligne via notre boutique sécurisée :\n"
+            "👉 https://myaishop.com/paiement\n"  # Remplace par ton vrai lien
+        )
+        bouton = [{"text": "📌 J’ai payé", "callback_data": f"pay:{key}"}]
+        send_inline_menu(chat_id, texte, bouton)
+        
 
     # Envoi du message explicatif avec parse_mode Markdown
     requests.post(f"{TELEGRAM_URL}/sendMessage", json={
