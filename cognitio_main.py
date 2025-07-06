@@ -29,7 +29,7 @@ TONS = {
     "motivation": "🔥 Motivation"
 }
 POLES = [
-    "🧠 Éducation", "💼 Business", "🧘 Bien-être", "❤️ Maternité", "👵 SeniorCare",
+    "🧠 Éducation", "💼 Business", "🧘 Bien-être", "❤️ Maternité", "💼 SeniorCare",
     "🧒 Enfant", "🛡️ Éthique", "📖 Foi", "❤️ Amour", "💊 Santé"
 ]
 FORFAITS = {
@@ -43,7 +43,7 @@ FORFAITS = {
 def nkouma_guard(texte, parental=False):
     interdits = ["viol", "suicide", "pédoporno", "tuer", "arme", "esclavage"]
     if parental:
-        interdits += ["sexe", "nudité", "mort", "insulte", "démon"]
+        interdits += ["sexe", "nudite", "mort", "insulte", "démon"]
     return not any(m in texte.lower() for m in interdits)
 
 # 🔊 Envoi audio
@@ -87,19 +87,19 @@ def handle_text(chat_id, text):
     if cleaned in ["start", "/start"]:
         show_language_menu(chat_id)
 
-    elif session.get("étape") == "nom":
+    elif session.get("\u00e9tape") == "nom":
         session["nom"] = text
-        session["étape"] = "profil"
+        session["\u00e9tape"] = "profil"
         send_message(chat_id, "✍️ Décris à qui est destinée cette ANI (ex : pour ma grand-mère, mon fils, une maman stressée...)")
 
-    elif session.get("étape") == "profil":
+    elif session.get("\u00e9tape") == "profil":
         if nkouma_guard(text, parental=session.get("parental", False)):
             session["profil"] = text
             show_pole_menu(chat_id)
         else:
             send_message(chat_id, "❌ Contenu inapproprié.")
 
-    elif session.get("étape") == "conversation" and session.get("ani_crée"):
+    elif session.get("\u00e9tape") == "conversation" and session.get("ani_crée"):
 
         if session.get("messages_restants", 0) <= 0:
             send_message(chat_id, "⚠️ Ton forfait est épuisé. Merci de choisir un nouveau forfait pour continuer.")
@@ -129,7 +129,7 @@ def handle_text(chat_id, text):
                 send_audio(chat_id, reponse)
 
             bouton = [{
-                "text": "🎙️ Désactiver" if session.get("audio_on") else "🎙️ Activer",
+                "text": "🎹 Désactiver" if session.get("audio_on") else "🎹 Activer",
                 "callback_data": "audio:toggle"
             }]
             send_inline_menu(chat_id, "🔊 Audio automatique :", bouton)
@@ -170,7 +170,7 @@ def show_tone_menu(chat_id):
 def send_modes(chat_id):
     boutons = [
         {"text": "👶 Mode parental", "callback_data": "mode:parental"},
-        {"text": "🧓 Mode senior", "callback_data": "mode:senior"},
+        {"text": "🧃 Mode senior", "callback_data": "mode:senior"},
         {"text": "⏭️ Continuer", "callback_data": "continue"}
     ]
     send_inline_menu(chat_id, "🔧 Activer un mode spécial ?", boutons)
@@ -207,3 +207,53 @@ def send_inline_menu(chat_id, texte, boutons):
 @app.route("/", methods=["GET"])
 def home():
     return "✅ ANI Creator en ligne"
+
+# 🔄 Gestion des callback inline
+def handle_callback(data):
+    query = data["callback_query"]
+    chat_id = query["message"]["chat"]["id"]
+    data_cb = query["data"]
+    session = user_sessions.setdefault(chat_id, {})
+
+    if data_cb.startswith("lang:"):
+        session["langue"] = data_cb.split(":", 1)[1]
+        session["\u00e9tape"] = "nom"
+        send_message(chat_id, "🧠 Quel nom veux-tu donner à ton ANI ?")
+
+    elif data_cb.startswith("tone:"):
+        session["tone"] = data_cb.split(":", 1)[1]
+        send_modes(chat_id)
+
+    elif data_cb.startswith("mode:"):
+        mode = data_cb.split(":", 1)[1]
+        if mode == "parental":
+            session["parental"] = True
+        elif mode == "senior":
+            session["senior"] = True
+        send_message(chat_id, f"✅ Mode {mode} activé.")
+        send_modes(chat_id)
+
+    elif data_cb == "continue":
+        send_message(chat_id, "✍️ Quel nom veux-tu donner à ton ANI ?")
+        session["\u00e9tape"] = "nom"
+
+    elif data_cb.startswith("pole:"):
+        session["pole"] = data_cb.split(":", 1)[1]
+        session["ani_crée"] = True
+        send_message(chat_id, f"✨ Ton ANI est prête !")
+        show_forfaits(chat_id)
+
+    elif data_cb.startswith("pay:"):
+        forfait = data_cb.split(":", 1)[1]
+        session["forfait"] = forfait
+        session["messages_restants"] = FORFAITS[forfait]["messages"]
+        session["\u00e9tape"] = "conversation"
+        session["audio_on"] = True
+        send_message(chat_id, f"✅ Forfait {FORFAITS[forfait]['label']} activé.")
+        send_message(chat_id, "Tu peux maintenant parler avec ton ANI. Que puis-je faire pour toi aujourd’hui ?")
+
+    elif data_cb == "audio:toggle":
+        session["audio_on"] = not session.get("audio_on", False)
+        status = "activé" if session["audio_on"] else "désactivé"
+        send_message(chat_id, f"🎹 Mode audio {status}.")
+
