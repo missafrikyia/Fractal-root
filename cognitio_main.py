@@ -65,15 +65,50 @@ def send_morning():
         send_audio(chat_id, texte)
     return jsonify({"status": "envoyé à tous"}), 200
 
-# 🤖 Accueil
+# 🤖 Accueil unifié
 @app.route("/webhook", methods=["POST"])
 def webhook():
     data = request.get_json()
+
     if "message" in data:
         chat_id = data["message"]["chat"]["id"]
         user_chat_ids.add(chat_id)
         texte = data["message"].get("text", "")
         handle_text(chat_id, texte)
+
+    elif "callback_query" in data:
+        cb = data["callback_query"]
+        chat_id = cb["message"]["chat"]["id"]
+        data_cb = cb["data"]
+        session = user_sessions.setdefault(chat_id, {})
+
+        if data_cb.startswith("lang:"):
+            session["langue"] = data_cb.split(":")[1]
+            show_tone_menu(chat_id)
+
+        elif data_cb.startswith("tone:"):
+            session["tone"] = data_cb.split(":")[1]
+            send_modes(chat_id)
+
+        elif data_cb.startswith("mode:"):
+            mode = data_cb.split(":")[1]
+            session[mode] = not session.get(mode, False)
+            send_modes(chat_id)
+
+        elif data_cb == "continue":
+            send_message(chat_id, "📝 Donne un prénom à ton ANI :")
+            session["étape"] = "nom"
+
+        elif data_cb.startswith("pole:"):
+            session["pole"] = data_cb.split(":")[1]
+            show_forfaits(chat_id)
+
+        elif data_cb.startswith("pay:"):
+            session["forfait"] = data_cb.split(":")[1]
+            msg = generer_bienvenue(session)
+            send_message(chat_id, f"✅ ANI créée avec succès !\n\n{msg}")
+            send_audio(chat_id, msg)
+
     return jsonify({"ok": True})
 
 # 📩 Traitement messages texte
@@ -161,46 +196,7 @@ def send_inline_menu(chat_id, texte, boutons):
         "reply_markup": keyboard
     })
 
-# 🔁 Inline callback
-@app.route("/callback", methods=["POST"])
-def callback():
-    data = request.get_json()
-    if "callback_query" in data:
-        cb = data["callback_query"]
-        chat_id = cb["message"]["chat"]["id"]
-        data_cb = cb["data"]
-        session = user_sessions.setdefault(chat_id, {})
-
-        if data_cb.startswith("lang:"):
-            session["langue"] = data_cb.split(":")[1]
-            show_tone_menu(chat_id)
-
-        elif data_cb.startswith("tone:"):
-            session["tone"] = data_cb.split(":")[1]
-            send_modes(chat_id)
-
-        elif data_cb.startswith("mode:"):
-            mode = data_cb.split(":")[1]
-            session[mode] = not session.get(mode, False)
-            send_modes(chat_id)
-
-        elif data_cb == "continue":
-            send_message(chat_id, "📝 Donne un prénom à ton ANI :")
-            session["étape"] = "nom"
-
-        elif data_cb.startswith("pole:"):
-            session["pole"] = data_cb.split(":")[1]
-            show_forfaits(chat_id)
-
-        elif data_cb.startswith("pay:"):
-            session["forfait"] = data_cb.split(":")[1]
-            msg = generer_bienvenue(session)
-            send_message(chat_id, f"✅ ANI créée avec succès !\n\n{msg}")
-            send_audio(chat_id, msg)
-
-    return jsonify({"ok": True})
-
-# ✅ Test route
+# ✅ Route test
 @app.route("/", methods=["GET"])
 def home():
     return "✅ ANI Creator en ligne"
