@@ -238,7 +238,7 @@ def show_pole_menu(chat_id):
 
 def show_forfaits(chat_id):
     session = user_sessions.setdefault(chat_id, {})
-    send_message(chat_id, "📦 Voici nos formules MyAiFab :")
+    textes_et_boutons = []
 
     for key, f in FORFAITS.items():
         texte = (
@@ -249,12 +249,12 @@ def show_forfaits(chat_id):
             "✅ Une fois le paiement effectué, clique sur le bouton ci-dessous 👇"
         )
         bouton = [{"text": "📌 J’ai payé", "callback_data": f"pay:{key}"}]
+        textes_et_boutons.append((texte, bouton))
+
+    # Envoyer les messages un par un (1 message = 1 forfait)
+    for texte, bouton in textes_et_boutons:
         send_inline_menu(chat_id, texte, bouton, parse_mode="Markdown")
         
-    # Boutons inline avec les forfaits
-    boutons = [{"text": f["label"], "callback_data": f"pay:{key}"} for key, f in FORFAITS.items()]
-    send_inline_menu(chat_id, "💰 Choisis ton forfait ci-dessous :", boutons)
-
 # 📤 Fonctions d’envoi
 def send_message(chat_id, texte):
     requests.post(f"{TELEGRAM_URL}/sendMessage", json={"chat_id": chat_id, "text": texte})
