@@ -170,7 +170,7 @@ def handle_text(chat_id, text):
         else:
             send_message(chat_id, "❌ Contenu inapproprié.")
 
-elif session.get("étape") == "conversation":
+    elif session.get("étape") == "conversation":
     nom = session.get("nom", "ton ANI")
     langue = session.get("langue", "Français")
     tone = session.get("tone", "bienvaillante")
