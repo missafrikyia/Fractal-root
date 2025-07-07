@@ -1,3 +1,4 @@
+from mutagen.mp3 import MP3
 import uuid
 from flask import Flask, request, jsonify
 from langdetect import detect
@@ -105,14 +106,28 @@ def nkouma_guard(texte, parental=False):
 
 # 🔊 Envoi audio
 def envoyer_vocal(chat_id, texte):
+    # 🔊 Génère le MP3
     tts = gTTS(text=texte, lang="fr")
     filename = f"voice_{uuid.uuid4().hex}.mp3"
     filepath = os.path.join("static/audio", filename)
-    os.makedirs("static/audio", exist_ok=True)  # Crée le dossier si besoin
     tts.save(filepath)
-    with open(filepath, 'rb') as f:
-        requests.post(f"{TELEGRAM_URL}/sendVoice", data={"chat_id": chat_id}, files={"voice": f})
-    os.remove(filepath)
+
+    # ⏱ Vérifie la durée du fichier audio avec mutagen
+    audio = MP3(filepath)
+    duree = audio.info.length  # en secondes
+
+    try:
+        with open(filepath, 'rb') as f:
+            if duree <= 60:
+                requests.post(f"{TELEGRAM_API_URL}/sendVoice", data={"chat_id": chat_id}, files={"voice": f})
+            else:
+                requests.post(f"{TELEGRAM_API_URL}/sendAudio", data={
+                    "chat_id": chat_id,
+                    "title": "Message vocal IA",
+                    "performer": "Miss AfrikyIA"
+                }, files={"audio": f})
+    finally:
+        os.remove(filepath)
 
 # ⏰ Route CRON vocale
 @app.route("/send-morning", methods=["GET"])
