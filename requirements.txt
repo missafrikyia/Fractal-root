@@ -5,5 +5,5 @@ requests
 python-dotenv
 langdetect
 gunicorn
-
+mutagen
 
