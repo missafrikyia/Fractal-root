@@ -1,3 +1,4 @@
+import uuid
 from flask import Flask, request, jsonify
 from langdetect import detect
 from openai import OpenAI
@@ -103,13 +104,15 @@ def nkouma_guard(texte, parental=False):
     return not any(m in texte.lower() for m in interdits)
 
 # 🔊 Envoi audio
-def send_audio(chat_id, texte):
-    tts = gTTS(texte, lang='fr')
-    filename = f"audio_{chat_id}.mp3"
-    tts.save(filename)
-    with open(filename, "rb") as f:
-        requests.post(f"{TELEGRAM_URL}/sendAudio", data={"chat_id": chat_id}, files={"audio": f})
-    os.remove(filename)
+def envoyer_vocal(chat_id, texte):
+    tts = gTTS(text=texte, lang="fr")
+    filename = f"voice_{uuid.uuid4().hex}.mp3"
+    filepath = os.path.join("static/audio", filename)
+    os.makedirs("static/audio", exist_ok=True)  # Crée le dossier si besoin
+    tts.save(filepath)
+    with open(filepath, 'rb') as f:
+        requests.post(f"{TELEGRAM_URL}/sendVoice", data={"chat_id": chat_id}, files={"voice": f})
+    os.remove(filepath)
 
 # ⏰ Route CRON vocale
 @app.route("/send-morning", methods=["GET"])
@@ -153,40 +156,35 @@ def handle_text(chat_id, text):
             send_message(chat_id, "❌ Contenu inapproprié.")
 
     elif session.get("étape") == "conversation":
-        nom = session.get("nom", "ton ANI")
-        langue = session.get("langue", "Français")
-        tone = session.get("tone", "bienvaillante")
-        profil = session.get("profil", "une personne")
-        pole = session.get("pole", "général")
-        parental = session.get("parental", False)
-        senior = session.get("senior", False)
+    nom = session.get("nom", "ton ANI")
+    langue = session.get("langue", "Français")
+    tone = session.get("tone", "bienvaillante")
+    profil = session.get("profil", "une personne")
+    pole = session.get("pole", "général")
+    parental = session.get("parental", False)
+    senior = session.get("senior", False)
 
-        instruction = f"Tu es une IA {tone}, nommée {nom}, pour {profil}. Pôle : {pole}. "
-        if parental:
-            instruction += "Langage protégé. "
-        if senior:
-            instruction += "Parle lentement, avec des mots simples. "
-        instruction += f"Réponds uniquement en {langue.lower()}. "
-        instruction += "Tu peux aussi répondre en vocal grâce à une synthèse vocale."
+    instruction = f"Tu es une IA {tone}, nommée {nom}, pour {profil}. Pôle : {pole}. "
+    if parental:
+        instruction += "Langage protégé. "
+    if senior:
+        instruction += "Parle lentement, avec des mots simples. "
+    instruction += f"Réponds uniquement en {langue.lower()}. "
+    instruction += "Tu peux aussi répondre en vocal grâce à une synthèse vocale. Si l'utilisateur ne peut pas écrire, propose-lui de lui répondre à l'oral. "
 
-        try:
-            completion = client.chat.completions.create(
-                model="gpt-4",
-                messages=[
-                    {"role": "system", "content": instruction},
-                    {"role": "user", "content": text}
-                ]
-            )
-            reponse = completion.choices[0].message.content.strip()
-            send_message(chat_id, reponse)
-
-            # 👇 Ajout vocal si mot-clé détecté
-            mots_cles_audio = ["audio", "vocal", "dis-moi", "écoute", "chante", "conte", "histoire", "berceuse"]
-            if any(m in text.lower() for m in mots_cles_audio):
-                send_audio(chat_id, reponse)
-
-        except Exception as e:
-            send_message(chat_id, "❌ Une erreur est survenue. Merci de réessayer.")
+    try:
+        completion = client.chat.completions.create(
+            model="gpt-4",
+            messages=[
+                {"role": "system", "content": instruction},
+                {"role": "user", "content": text}
+            ]
+        )
+        reponse = completion.choices[0].message.content.strip()
+        send_message(chat_id, reponse)
+        envoyer_vocal(chat_id, reponse)  # 💬 + 🎙️ AUDIO automatique
+    except Exception as e:
+        send_message(chat_id, f"❌ Une erreur est survenue : {str(e)}")
     
 # 🧠 Générer message de bienvenue
 def generer_bienvenue(session):
