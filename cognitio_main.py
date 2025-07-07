@@ -143,7 +143,7 @@ def handle_text(chat_id, text):
     elif session.get("étape") == "nom":
         session["nom"] = text
         session["étape"] = "profil"
-        send_message(chat_id, "✍️ Décris à qui est destinée cette ANI (ex : pour ma grand-mère, mon fils, une maman stressée...)")
+        send_message(chat_id, "✍️ Décris à qui est destinée cette ANI.")
 
     elif session.get("étape") == "profil":
         if nkouma_guard(text, parental=session.get("parental", False)):
@@ -152,41 +152,41 @@ def handle_text(chat_id, text):
         else:
             send_message(chat_id, "❌ Contenu inapproprié.")
 
-elif session.get("étape") == "conversation":
-    nom = session.get("nom", "ton ANI")
-    langue = session.get("langue", "Français")
-    tone = session.get("tone", "bienvaillante")
-    profil = session.get("profil", "une personne")
-    pole = session.get("pole", "général")
-    parental = session.get("parental", False)
-    senior = session.get("senior", False)
+    elif session.get("étape") == "conversation":
+        nom = session.get("nom", "ton ANI")
+        langue = session.get("langue", "Français")
+        tone = session.get("tone", "bienvaillante")
+        profil = session.get("profil", "une personne")
+        pole = session.get("pole", "général")
+        parental = session.get("parental", False)
+        senior = session.get("senior", False)
 
-    instruction = f"Tu es une IA {tone}, nommée {nom}, pour {profil}. Pôle : {pole}. "
-    if parental:
-        instruction += "Langage protégé. "
-    if senior:
-        instruction += "Parle lentement, avec des mots simples. "
-    instruction += f"Réponds uniquement en {langue.lower()}. "
-    instruction += "Tu peux aussi répondre en vocal grâce à une synthèse vocale. Si l'utilisateur ne peut pas écrire, propose-lui de lui répondre à l'oral. "
+        instruction = f"Tu es une IA {tone}, nommée {nom}, pour {profil}. Pôle : {pole}. "
+        if parental:
+            instruction += "Langage protégé. "
+        if senior:
+            instruction += "Parle lentement, avec des mots simples. "
+        instruction += f"Réponds uniquement en {langue.lower()}. "
+        instruction += "Tu peux aussi répondre en vocal grâce à une synthèse vocale."
 
-    try:
-        completion = client.chat.completions.create(
-            model="gpt-4",
-            messages=[
-                {"role": "system", "content": instruction},
-                {"role": "user", "content": text}
-            ]
-        )
-        reponse = completion.choices[0].message.content.strip()
-        send_message(chat_id, reponse)
+        try:
+            completion = client.chat.completions.create(
+                model="gpt-4",
+                messages=[
+                    {"role": "system", "content": instruction},
+                    {"role": "user", "content": text}
+                ]
+            )
+            reponse = completion.choices[0].message.content.strip()
+            send_message(chat_id, reponse)
 
-        # ✅ Si l'utilisateur souhaite un audio (mot-clé détecté)
-        mots_cles_audio = ["audio", "vocal", "dis-moi", "écoute", "chante", "conte", "histoire", "berceuse", "chanson"]
-        if any(m in text.lower() for m in mots_cles_audio):
-            send_audio(chat_id, reponse)
+            # 👇 Ajout vocal si mot-clé détecté
+            mots_cles_audio = ["audio", "vocal", "dis-moi", "écoute", "chante", "conte", "histoire", "berceuse"]
+            if any(m in text.lower() for m in mots_cles_audio):
+                send_audio(chat_id, reponse)
 
-    except Exception as e:
-        send_message(chat_id, "❌ Une erreur est survenue. Merci de réessayer.")
+        except Exception as e:
+            send_message(chat_id, "❌ Une erreur est survenue. Merci de réessayer.")
     
 # 🧠 Générer message de bienvenue
 def generer_bienvenue(session):
