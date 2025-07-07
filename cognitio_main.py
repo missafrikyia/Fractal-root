@@ -132,7 +132,7 @@ def envoyer_vocal(chat_id, texte):
 def send_morning():
     texte = "Bonjour ☀️ ! Voici ton message vocal du matin. Tu es capable, tu es digne, et cette journée est à toi !"
     for chat_id in list(user_chat_ids):
-        send_audio(chat_id, texte)
+        envoyer_vocal(chat_id, texte)
     return jsonify({"status": "envoyé à tous"}), 200
 
 # 🤖 Webhook Telegram
@@ -255,7 +255,6 @@ def show_pole_menu(chat_id):
 
 def show_forfaits(chat_id):
     session = user_sessions.setdefault(chat_id, {})
-
     intro = (
         "📦 *Voici nos formules MyAiFab :*\n\n"
         "💳 Paiement CB sécurisé : [Clique ici](https://myaishop.com/paiement)\n"
@@ -266,7 +265,6 @@ def show_forfaits(chat_id):
         "text": intro,
         "parse_mode": "Markdown"
     })
-
     for key, f in FORFAITS.items():
         texte = (
             f"*{f['label']}*\n"
@@ -291,7 +289,7 @@ def send_inline_menu(chat_id, texte, boutons, parse_mode=None):
         payload["parse_mode"] = parse_mode
     requests.post(f"{TELEGRAM_URL}/sendMessage", json=payload)
 
-# 🔁 Callback centralisé
+# 🔁 Callback
 def handle_callback(data):
     cb = data["callback_query"]
     chat_id = cb["message"]["chat"]["id"]
@@ -329,7 +327,7 @@ def handle_callback(data):
             try:
                 msg = generer_bienvenue(session)
                 send_message(chat_id, f"✅ ANI créée avec succès !\n\n{msg}")
-                send_audio(chat_id, msg)
+                envoyer_vocal(chat_id, msg)
                 session["ani_crée"] = True
                 session["étape"] = "conversation"
             except Exception as e:
