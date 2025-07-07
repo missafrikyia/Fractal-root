@@ -251,7 +251,7 @@ def show_forfaits(chat_id):
         "parse_mode": "Markdown"
     })
 
-    # 📲 Boutons avec descriptions intégrées
+    # 📲 Boutons avec descriptions intégrées (1 message par formule)
     for key, f in FORFAITS.items():
         texte = (
             f"*{f['label']}*\n"
@@ -261,10 +261,6 @@ def show_forfaits(chat_id):
         bouton = [{"text": "📌 J’ai payé", "callback_data": f"pay:{key}"}]
         send_inline_menu(chat_id, texte, bouton, parse_mode="Markdown")
 
-    # Envoyer les messages un par un (1 message = 1 forfait)
-    for texte, bouton in textes_et_boutons:
-        send_inline_menu(chat_id, texte, bouton, parse_mode="Markdown")
-        
 # 📤 Fonctions d’envoi
 def send_message(chat_id, texte):
     requests.post(f"{TELEGRAM_URL}/sendMessage", json={"chat_id": chat_id, "text": texte})
