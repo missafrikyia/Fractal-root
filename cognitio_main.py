@@ -265,13 +265,17 @@ def show_forfaits(chat_id):
 def send_message(chat_id, texte):
     requests.post(f"{TELEGRAM_URL}/sendMessage", json={"chat_id": chat_id, "text": texte})
 
-def send_inline_menu(chat_id, texte, boutons):
+def send_inline_menu(chat_id, texte, boutons, parse_mode=None):
     keyboard = {"inline_keyboard": [[{"text": b["text"], "callback_data": b["callback_data"]}] for b in boutons]}
-    requests.post(f"{TELEGRAM_URL}/sendMessage", json={
+    payload = {
         "chat_id": chat_id,
         "text": texte,
         "reply_markup": keyboard
-    })
+    }
+    if parse_mode:
+        payload["parse_mode"] = parse_mode
+
+    requests.post(f"{TELEGRAM_URL}/sendMessage", json=payload)
 
 # 🔁 Callback centralisé (inchangé)
 def handle_callback(data):
