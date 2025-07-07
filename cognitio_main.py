@@ -155,7 +155,7 @@ def handle_text(chat_id, text):
         else:
             send_message(chat_id, "❌ Contenu inapproprié.")
 
-    elif session.get("étape") == "conversation":
+elif session.get("étape") == "conversation":
     nom = session.get("nom", "ton ANI")
     langue = session.get("langue", "Français")
     tone = session.get("tone", "bienvaillante")
@@ -170,7 +170,7 @@ def handle_text(chat_id, text):
     if senior:
         instruction += "Parle lentement, avec des mots simples. "
     instruction += f"Réponds uniquement en {langue.lower()}. "
-    instruction += "Tu peux aussi répondre en vocal grâce à une synthèse vocale. Si l'utilisateur ne peut pas écrire, propose-lui de lui répondre à l'oral. "
+    instruction += "Tu peux aussi répondre en vocal grâce à une synthèse vocale."
 
     try:
         completion = client.chat.completions.create(
@@ -182,10 +182,10 @@ def handle_text(chat_id, text):
         )
         reponse = completion.choices[0].message.content.strip()
         send_message(chat_id, reponse)
-        envoyer_vocal(chat_id, reponse)  # 💬 + 🎙️ AUDIO automatique
+        envoyer_vocal(chat_id, reponse)
     except Exception as e:
         send_message(chat_id, f"❌ Une erreur est survenue : {str(e)}")
-    
+
 # 🧠 Générer message de bienvenue
 def generer_bienvenue(session):
     nom = session.get("nom", "ton ANI")
