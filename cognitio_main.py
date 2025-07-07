@@ -153,6 +153,8 @@ def handle_text(chat_id, text):
     session = user_sessions.setdefault(chat_id, {})
     cleaned = text.lower().strip()
 
+    print("💬 ETAPE ACTUELLE :", session.get("étape"))  # 🔍 Debug à retirer après
+
     if cleaned in ["start", "/start"]:
         show_language_menu(chat_id)
 
@@ -195,10 +197,19 @@ def handle_text(chat_id, text):
             )
             reponse = completion.choices[0].message.content.strip()
             send_message(chat_id, reponse)
-            envoyer_vocal(chat_id, reponse)
+            try:
+                envoyer_vocal(chat_id, reponse)
+            except Exception as e:
+                send_message(chat_id, "⚠️ GPT a répondu, mais l’audio n’a pas pu être généré.")
+                print("Erreur audio :", e)
         except Exception as e:
             send_message(chat_id, f"❌ Une erreur est survenue : {str(e)}")
 
+    elif session.get("étape") is None and session.get("ani_crée"):
+        session["étape"] = "conversation"
+        print("🔁 Reprise automatique en mode conversation")
+        handle_text(chat_id, text)
+        
 # 🧠 Générer message de bienvenue
 def generer_bienvenue(session):
     nom = session.get("nom", "ton ANI")
